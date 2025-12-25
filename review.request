@@ -1,0 +1,33 @@
+
+### 💡 最后的“亿”点点建议：让 Footer 变身
+
+我注意到这三张图底部都有一个共同的**米色/灰白色 Footer 区域**（免责声明+工作间）。
+虽然这很统一，但在 **深色模版 (Noir)** 和 **全屏图片模版 (Impact)** 中，这个 Footer 显得有点“出戏”，像是一张贴上去的白纸。
+
+**建议实现 `Adaptive Footer` (自适应页脚)：**
+
+*   **Noir 模版**：Footer 背景变黑，文字变灰。
+*   **Tabloid 模版**：Footer 保持米色（报纸感）。
+*   **Impact 模版**：Footer 变成透明背景 (`bg-transparent`)，文字反白，浮在图片最底部。
+
+**代码思路：**
+
+```tsx
+// 在 Preview 组件中
+const getFooterStyle = (layoutId: string) => {
+  switch(layoutId) {
+    case 'noir': 
+      return 'bg-black text-neutral-500 border-t border-neutral-800';
+    case 'impact':
+      return 'bg-gradient-to-t from-black via-black to-transparent text-white/80';
+    default: // tabloid & classic
+      return 'bg-[#FAF9F4] text-neutral-500 border-t border-neutral-200';
+  }
+}
+
+return (
+  <div className={`... ${getFooterStyle(page.layoutId)}`}>
+    {/* Footer Content */}
+  </div>
+)
+```

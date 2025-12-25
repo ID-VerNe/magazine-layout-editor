@@ -19,6 +19,9 @@ export interface ImageConfig {
 export interface PageData {
   id: string;
   type: PageType;
+  layoutId?: string;
+  lastCoverLayoutId?: string;
+  lastArticleLayoutId?: string;
   image: string;
   logo?: string; 
   logoSize?: number;

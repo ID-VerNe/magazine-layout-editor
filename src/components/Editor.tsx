@@ -1,6 +1,6 @@
 import React from 'react';
 import { PageData, Paragraph, CustomFont, ImageConfig } from '../types';
-import { Plus, Trash2, Image as ImageIcon, Type, Quote, MessageSquare, X, ChevronDown, Move, Maximize2, RotateCcw, Box, AlignJustify, Info, AlertTriangle, Settings, Check } from 'lucide-react';
+import { Plus, Trash2, Image as ImageIcon, Type, Quote, MessageSquare, X, ChevronDown, Move, Maximize2, RotateCcw, Box, AlignJustify, Info, AlertTriangle, Settings, Check, Layout } from 'lucide-react';
 
 interface EditorProps {
   page: PageData;
@@ -159,6 +159,33 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
           </div>
         </div>
       )}
+
+      <Section>
+        <Label icon={Layout}>Page Layout</Label>
+        <div className="relative group">
+          <select 
+            value={page.layoutId || (page.type === 'cover' ? 'classic-cover' : 'classic-article')} 
+            onChange={(e) => handleChange('layoutId', e.target.value)}
+            className="w-full appearance-none bg-slate-50 text-xs font-black uppercase tracking-widest text-slate-900 py-2.5 pl-3 pr-8 rounded-lg hover:bg-slate-100 transition-all focus:outline-none focus:ring-2 focus:ring-[#264376]/20 cursor-pointer"
+          >
+            {page.type === 'cover' ? (
+              <optgroup label="Cover Layouts">
+                <option value="classic-cover">Classic Editorial</option>
+                <option value="impact-bold">Impact Bold</option>
+                <option value="cinematic">Cinematic 16:9</option>
+                <option value="blueprint">Engineering Blueprint</option>
+                <option value="tabloid">Tabloid News</option>
+                <option value="typography">Typographic Poster</option>
+              </optgroup>
+            ) : (
+              <optgroup label="Article Layouts">
+                <option value="classic-article">Modern Split</option>
+              </optgroup>
+            )}
+          </select>
+          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        </div>
+      </Section>
 
       {/* Main Image Section */}
       <Section>

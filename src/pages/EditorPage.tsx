@@ -1,10 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
-import { Plus, Trash2, Download, Layout, Type, ChevronLeft, ChevronRight, Settings, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, Eraser, Minimize2, ChevronDown } from 'lucide-react';
-import { PageData, PageType, CustomFont, ProjectData } from './types';
-import Editor from './components/Editor';
-import Preview from './components/Preview';
-import FontManager from './components/FontManager';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { Plus, Trash2, Download, Layout, Type, ChevronLeft, ChevronRight, Settings, ZoomIn, ZoomOut, Maximize, Save, FolderOpen, Eraser, Minimize2, ChevronDown, Home } from 'lucide-react';
+import { PageData, PageType, CustomFont, ProjectData } from '../types';
+import Editor from '../components/Editor';
+import Preview from '../components/Preview';
+import FontManager from '../components/FontManager';
 import { toPng } from 'html-to-image';
+import { saveProject, getProject } from '../utils/db';
+import { useUI } from '../context/UIContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const DEFAULT_PAGES: PageData[] = [
   {
@@ -30,7 +34,13 @@ const DEFAULT_PAGES: PageData[] = [
   }
 ];
 
-export default function App() {
+export default function EditorPage() {
+  const navigate = useNavigate();
+  const { alert, confirm } = useUI();
+  const { projectId } = useParams();
+  const [searchParams] = useSearchParams();
+  const templateId = searchParams.get('template');
+
   const [pages, setPages] = useState<PageData[]>(DEFAULT_PAGES);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
@@ -41,11 +51,93 @@ export default function App() {
   const [isAutoFit, setIsAutoFit] = useState(true); 
   const [enforceA4, setEnforceA4] = useState(true);
   const [pagesOverflow, setPagesOverflow] = useState<Record<string, boolean>>({});
+  const [isLoaded, setIsLoaded] = useState(false);
   
   const previewRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // 1. Initial Load from Database
+  useEffect(() => {
+    async function loadData() {
+      if (projectId) {
+        const savedData = await getProject(projectId);
+        if (savedData) {
+          setPages(savedData.pages || DEFAULT_PAGES);
+          setCustomFonts(savedData.customFonts || []);
+          setEnforceA4(savedData.settings?.enforceA4 ?? true);
+        } else if (templateId) {
+          // Initialize from template only if not in DB
+          let newPages = JSON.parse(JSON.stringify(DEFAULT_PAGES));
+          const tid = templateId.toLowerCase();
+          
+          if (tid === 'classic-cover') {
+             newPages[0].layoutId = 'classic-cover';
+             newPages[0].type = 'cover';
+          } else if (tid === 'impact-bold') {
+             newPages[0].layoutId = 'impact-bold';
+             newPages[0].type = 'cover';
+          } else if (tid === 'cinematic') {
+             newPages[0].layoutId = 'cinematic';
+             newPages[0].type = 'cover';
+          } else if (tid === 'blueprint') {
+             newPages[0].layoutId = 'blueprint';
+             newPages[0].type = 'cover';
+          } else if (tid === 'tabloid') {
+             newPages[0].layoutId = 'tabloid';
+             newPages[0].type = 'cover';
+          } else if (tid === 'typography') {
+             newPages[0].layoutId = 'typography';
+             newPages[0].type = 'cover';
+          } else if (tid === 'classic-article' || tid === 'split-article') {
+             newPages[0].layoutId = 'classic-article';
+             newPages[0].type = 'article';
+             newPages[0].paragraphs = [{ id: 'p-init', en: 'Start writing...', zh: '开始写作...' }];
+          }
+          setPages(newPages);
+        }
+        setIsLoaded(true);
+      }
+    }
+    loadData();
+  }, [projectId, templateId]);
+
+  // 2. Persist to Database on Change (only after initial load)
+  useEffect(() => {
+    if (projectId && isLoaded) {
+      const projectState = {
+        pages,
+        customFonts,
+        settings: { enforceA4 },
+        lastEdited: new Date().toISOString(),
+        title: pages[0]?.titleEn || 'Untitled Project'
+      };
+      
+      // Save to IndexedDB
+      saveProject(projectId, projectState);
+
+      // Update project index for Dashboard (keep summary in localStorage for fast listing)
+      const indexSaved = localStorage.getItem('magazine_recent_projects');
+      let index = indexSaved ? JSON.parse(indexSaved) : [];
+      
+      const existingIdx = index.findIndex((p: any) => p.id === projectId);
+      const projectSummary = {
+        id: projectId,
+        title: projectState.title,
+        date: new Date().toLocaleDateString(),
+        type: pages[0]?.layoutId || pages[0]?.type || 'Custom'
+      };
+
+      if (existingIdx > -1) {
+        index[existingIdx] = projectSummary;
+      } else {
+        index.unshift(projectSummary);
+      }
+      
+      localStorage.setItem('magazine_recent_projects', JSON.stringify(index.slice(0, 10)));
+    }
+  }, [pages, customFonts, enforceA4, projectId, isLoaded]);
 
   const currentPage = pages[currentPageIndex];
 
@@ -68,7 +160,6 @@ export default function App() {
   const calculateFitZoom = useCallback(() => {
     if (!previewContainerRef.current) return 0.8;
     
-    // Use getBoundingClientRect for more precision in flex layouts
     const rect = previewContainerRef.current.getBoundingClientRect();
     const containerHeight = rect.height;
     
@@ -76,11 +167,8 @@ export default function App() {
 
     const padding = 96; // p-12 (48px top + 48px bottom)
     
-    // Find the current page element to get its actual height
-    // If enforceA4 is true, it's 1131. If false, it could be taller.
     let targetHeight = 1131;
     if (previewRef.current) {
-      // Target only the active page
       const currentPageEl = previewRef.current.querySelector('.magazine-page-container.block .magazine-page');
       if (currentPageEl) {
         targetHeight = Math.max(1131, currentPageEl.scrollHeight);
@@ -104,7 +192,6 @@ export default function App() {
 
     observer.observe(previewContainerRef.current);
     
-    // Initial calculation with a tiny delay to ensure layout has settled
     const timeoutId = setTimeout(() => {
       if (isAutoFit) {
         setPreviewZoom(calculateFitZoom());
@@ -125,11 +212,35 @@ export default function App() {
   }, [currentPageIndex, enforceA4, isAutoFit, calculateFitZoom, pages]);
 
   const updatePage = (updatedPage: PageData) => {
-    // Check which fields were updated
     const originalPage = pages.find(p => p.id === updatedPage.id);
     if (!originalPage) return;
     
-    // Identify font fields that changed
+    // --- Robust Type Switching with Memory ---
+    if (updatedPage.type !== originalPage.type) {
+      if (updatedPage.type === 'article') {
+        // Remember current cover layout
+        updatedPage.lastCoverLayoutId = originalPage.layoutId;
+        // Restore last article layout or use default
+        updatedPage.layoutId = updatedPage.lastArticleLayoutId || 'classic-article';
+        
+        if (!updatedPage.paragraphs || updatedPage.paragraphs.length === 0) {
+          updatedPage.paragraphs = [{ id: `p-${Date.now()}`, en: '', zh: '' }];
+        }
+      } else {
+        // Remember current article layout
+        updatedPage.lastArticleLayoutId = originalPage.layoutId;
+        // Restore last cover layout or use default
+        updatedPage.layoutId = updatedPage.lastCoverLayoutId || 'classic-cover';
+      }
+    } else {
+      // Type didn't change, but layout might have. Keep memory updated.
+      if (updatedPage.type === 'cover') {
+        updatedPage.lastCoverLayoutId = updatedPage.layoutId;
+      } else {
+        updatedPage.lastArticleLayoutId = updatedPage.layoutId;
+      }
+    }
+    
     const fontFields: Array<keyof PageData> = [
       'titleEnFont', 'titleZhFont', 'bylineFont', 'quoteEnFont', 'quoteZhFont',
       'footerFont', 'paragraphEnFont', 'paragraphZhFont', 'footnoteFont',
@@ -143,18 +254,18 @@ export default function App() {
       }
     });
     
-    // If font fields changed, apply them to all pages for global consistency
     if (changedFontFields.length > 0) {
       setPages(prev => prev.map(page => {
-        // Apply changed font fields to all pages
         const updatedPageData: PageData = { ...page };
+        if (page.id === updatedPage.id) {
+           Object.assign(updatedPageData, updatedPage);
+        }
         changedFontFields.forEach(field => {
           updatedPageData[field] = updatedPage[field];
         });
         return updatedPageData;
       }));
     } else {
-      // Regular update for non-font fields
       setPages(prev => prev.map(p => p.id === updatedPage.id ? updatedPage : p));
     }
   };
@@ -212,10 +323,10 @@ export default function App() {
         setCurrentPageIndex(0);
         setIsAutoFit(true);
         
-        alert("Project imported successfully!");
+        alert("Import Success", "Project data has been loaded successfully.");
       } catch (err) {
         console.error("Import failed:", err);
-        alert("Failed to import project. Invalid file format.");
+        alert("Import Error", "Failed to import project. Invalid file format.");
       }
     };
     reader.readAsText(file);
@@ -223,22 +334,18 @@ export default function App() {
   };
 
   const addPage = (type: PageType) => {
-    // Get the first page to inherit settings from
     const firstPage = pages[0];
-    
     const newPage: PageData = {
       id: `page-${Date.now()}`,
       type,
+      layoutId: type === 'cover' ? 'classic-cover' : 'classic-article',
       image: 'https://picsum.photos/1200/1600',
-      // Inherit settings from first page
       titleEn: firstPage.titleEn,
       titleZh: firstPage.titleZh,
       byline: firstPage.byline,
       footerLeft: firstPage.footerLeft,
       footerRight: firstPage.footerRight,
       lineHeight: firstPage.lineHeight || 1.6,
-      
-      // Inherit font settings
       titleEnFont: firstPage.titleEnFont,
       titleZhFont: firstPage.titleZhFont,
       bylineFont: firstPage.bylineFont,
@@ -248,7 +355,6 @@ export default function App() {
       paragraphEnFont: firstPage.paragraphEnFont,
       paragraphZhFont: firstPage.paragraphZhFont,
       footnoteFont: firstPage.footnoteFont,
-      
       paragraphs: type === 'article' ? [{ id: `p-${Date.now()}`, en: 'New paragraph text in English.', zh: '新的中文段落文字。' }] : undefined,
     };
     setPages(prev => [...prev, newPage]);
@@ -260,28 +366,40 @@ export default function App() {
       handleClearAll();
       return;
     }
-    setPages(prev => prev.filter(p => p.id !== id));
-    setCurrentPageIndex(Math.max(0, currentPageIndex - 1));
+    
+    confirm(
+      "Delete Page",
+      "Are you sure you want to delete this page? This action will remove all content on this page.",
+      () => {
+        setPages(prev => prev.filter(p => p.id !== id));
+        setCurrentPageIndex(Math.max(0, currentPageIndex - 1));
+      }
+    );
   };
 
   const handleClearAll = () => {
-    if (window.confirm("Are you sure you want to clear all pages? This will reset the project.")) {
-      setPages([
-        {
-          id: `page-${Date.now()}`,
-          type: 'cover',
-          image: '',
-          titleEn: 'Untitled Project',
-          titleZh: '未命名项目',
-          byline: 'Author Name',
-          footerLeft: 'Footer L',
-          footerRight: 'Footer R',
-          lineHeight: 1.6
-        }
-      ]);
-      setCurrentPageIndex(0);
-      setIsAutoFit(true);
-    }
+    confirm(
+      "Reset Project",
+      "Are you sure you want to clear all pages? This will permanently reset the current project state.",
+      () => {
+        setPages([
+          {
+            id: `page-${Date.now()}`,
+            type: 'cover',
+            layoutId: 'classic-cover',
+            image: '',
+            titleEn: 'Untitled Project',
+            titleZh: '未命名项目',
+            byline: 'Author Name',
+            footerLeft: 'Footer L',
+            footerRight: 'Footer R',
+            lineHeight: 1.6
+          }
+        ]);
+        setCurrentPageIndex(0);
+        setIsAutoFit(true);
+      }
+    );
   };
 
   const exportAsPng = async (exportAll: boolean = false) => {
@@ -292,44 +410,29 @@ export default function App() {
     try {
       const prevZoom = previewZoom;
       const prevPageIndex = currentPageIndex;
-      
-      // We must set zoom to 1 for high quality export
       setPreviewZoom(1);
-      
-      // Wait for layout to settle at zoom 1
       await new Promise(resolve => setTimeout(resolve, 300));
-      
       const pagesToExport = exportAll ? pages : [pages[currentPageIndex]];
-      
       for (let i = 0; i < pagesToExport.length; i++) {
         const pageIdx = exportAll ? i : prevPageIndex;
-        
-        // Temporarily switch to the page to ensure it's rendered and visible
         if (exportAll) {
           setCurrentPageIndex(i);
-          // Wait for render
           await new Promise(resolve => setTimeout(resolve, 150));
         }
-
         const pageElements = previewRef.current.getElementsByClassName('magazine-page');
         const targetElement = pageElements[exportAll ? i : prevPageIndex] as HTMLElement;
         if (!targetElement) continue;
-
         const dataUrl = await toPng(targetElement, {
           quality: 1,
           pixelRatio: 2,
           backgroundColor: '#ffffff',
         });
-        
         const link = document.createElement('a');
         link.download = `magazine-page-${pageIdx + 1}.png`;
         link.href = dataUrl;
         link.click();
-        
-        // Anti-blocking delay
         if (exportAll) await new Promise(resolve => setTimeout(resolve, 300));
       }
-      
       setPreviewZoom(prevZoom);
       if (exportAll) setCurrentPageIndex(prevPageIndex);
     } catch (err) {
@@ -358,14 +461,23 @@ export default function App() {
   return (
     <div className="flex h-screen bg-neutral-100 overflow-hidden font-sans">
       {/* Sidebar */}
-      <div className="w-16 bg-white border-r border-neutral-200 flex flex-col items-center py-4 gap-4 z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <div className="p-2 bg-[#264376] text-white rounded-xl mb-4 shadow-lg shadow-[#264376]/20">
+      <motion.div 
+        initial={{ x: -64 }}
+        animate={{ x: 0 }}
+        className="w-16 bg-white border-r border-neutral-200 flex flex-col items-center py-4 gap-4 z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]"
+      >
+        <button 
+          onClick={() => navigate('/')}
+          className="p-2 bg-[#264376] text-white rounded-xl mb-4 shadow-lg shadow-[#264376]/20 hover:scale-110 active:scale-95 transition-all"
+          title="Back to Dashboard"
+        >
           <Layout size={20} />
-        </div>
+        </button>
         
         <div className="flex-1 w-full flex flex-col items-center gap-3 overflow-y-auto no-scrollbar pt-2">
           {pages.map((p, idx) => (
-            <button
+            <motion.button
+              layout
               key={p.id}
               onClick={() => setCurrentPageIndex(idx)}
               className={`w-10 h-14 min-h-[56px] rounded-lg transition-all flex items-center justify-center text-sm font-black tracking-widest shadow-sm border-l-4
@@ -374,7 +486,7 @@ export default function App() {
                   : 'border-transparent bg-slate-50 text-slate-400 hover:bg-white hover:text-slate-600'}`}
             >
               {idx + 1}
-            </button>
+            </motion.button>
           ))}
 
           <button 
@@ -389,7 +501,7 @@ export default function App() {
         <div className="mt-auto flex flex-col items-center gap-3 pb-4">
           <button 
             onClick={handleClearAll}
-            className="w-10 h-10 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500 flex items-center justify-center transition-all"
+            className="w-10 h-10 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 flex items-center justify-center transition-all"
             title="Clear All Pages"
           >
             <Eraser size={18} />
@@ -430,11 +542,14 @@ export default function App() {
             <Settings size={18} />
           </button>
         </div>
-      </div>
+      </motion.div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Left: Preview Panel */}
-        <div className="flex-1 bg-neutral-200/50 flex flex-col overflow-hidden relative">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex-1 bg-neutral-200/50 flex flex-col overflow-hidden relative"
+        >
           <div className="h-16 px-6 bg-white border-b border-neutral-200 flex justify-between items-center z-10">
             <div className="flex items-center gap-3">
               <span className="font-bold text-slate-800 tracking-tight">Preview</span>
@@ -504,27 +619,34 @@ export default function App() {
                     <ChevronDown size={14} className={`transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
                   </button>
 
-                  {showExportMenu && (
-                    <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl shadow-slate-200/50 border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
-                      <div className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
-                        Select Option
-                      </div>
-                      <button 
-                        onClick={() => exportAsPng(false)}
-                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                  <AnimatePresence>
+                    {showExportMenu && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl shadow-slate-200/50 border border-slate-100 py-2 z-50 overflow-hidden"
                       >
-                        <div className="w-2 h-2 rounded-full bg-[#264376]" />
-                        Current Page
-                      </button>
-                      <button 
-                        onClick={() => exportAsPng(true)}
-                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
-                      >
-                        <div className="w-2 h-2 rounded-full border border-[#264376]/30" />
-                        All Pages ({pages.length})
-                      </button>
-                    </div>
-                  )}
+                        <div className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 mb-1">
+                          Select Option
+                        </div>
+                        <button 
+                          onClick={() => exportAsPng(false)}
+                          className="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                        >
+                          <div className="w-2 h-2 rounded-full bg-[#264376]" />
+                          Current Page
+                        </button>
+                        <button 
+                          onClick={() => exportAsPng(true)}
+                          className="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                        >
+                          <div className="w-2 h-2 rounded-full border border-[#264376]/30" />
+                          All Pages ({pages.length})
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             </div>
@@ -553,15 +675,26 @@ export default function App() {
              </div>
           </div>
 
-          {showFontManager && (
-            <div className="absolute bottom-4 left-4 z-20">
-              <FontManager fonts={customFonts} onFontsChange={setCustomFonts} />
-            </div>
-          )}
-        </div>
+          <AnimatePresence>
+            {showFontManager && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="absolute bottom-4 left-4 z-20"
+              >
+                <FontManager fonts={customFonts} onFontsChange={setCustomFonts} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         {/* Right: Editor Panel */}
-        <div className="w-[400px] bg-white border-l border-neutral-200 flex flex-col shadow-[0_0_40px_rgba(0,0,0,0.05)] z-20">
+        <motion.div 
+          initial={{ x: 400 }}
+          animate={{ x: 0 }}
+          className="w-[400px] bg-white border-l border-neutral-200 flex flex-col shadow-[0_0_40px_rgba(0,0,0,0.05)] z-20"
+        >
           <div className="h-16 px-6 border-b border-neutral-100 bg-white flex justify-between items-center shrink-0">
             <h2 className="font-bold text-slate-800 flex items-center gap-2">
               <Type size={18} className="text-slate-400" />
@@ -601,7 +734,7 @@ export default function App() {
               enforceA4={enforceA4}
             />
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
