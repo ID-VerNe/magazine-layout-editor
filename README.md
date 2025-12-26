@@ -30,17 +30,11 @@
 ![编辑器预览](public/previews/2025-12-26_155817.jpg)
 
 ### 内置模板风格
-| 经典封面 (Classic) | 电影感 (Cinematic) | 工程蓝图 (Blueprint) |
-| :--- | :--- | :--- |
-| ![Classic](public/previews/classic.png) | ![Cinematic](public/previews/cinematic.png) | ![Blueprint](public/previews/blueprints.png) |
-
-| 冲击力 (Impact) | 报纸风 (Tabloid) | 字体艺术 (Typography) |
-| :--- | :--- | :--- |
-| ![Impact](public/previews/impact.png) | ![Tabloid](public/previews/tabloid.png) | ![Typography](public/previews/typography.png) |
-
-| 现代分栏文章 (Modern Article) | 蓝图文章 (Blueprint Article) |
-| :--- | :--- |
-| ![Modern Article](public/previews/modern.png) | ![Blueprint Article](public/previews/blueprints_article.png) |
+| 经典封面 (Classic) | 电影感 (Cinematic) | 蓝图封面 (Blueprint) | 冲击力 (Impact) |
+| :--- | :--- | :--- | :--- |
+| ![Classic](public/previews/classic.png) | ![Cinematic](public/previews/cinematic.png) | ![Blueprint](public/previews/blueprints.png) | ![Impact](public/previews/impact.png) |
+| **报纸风 (Tabloid)** | **字体艺术 (Typography)** | **现代分栏 (Article)** | **蓝图文章 (Article)** |
+| ![Tabloid](public/previews/tabloid.png) | ![Typography](public/previews/typography.png) | ![Modern Article](public/previews/modern.png) | ![Blueprint Article](public/previews/blueprints_article.png) |
 
 ---
 
