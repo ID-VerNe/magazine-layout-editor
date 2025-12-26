@@ -1,6 +1,8 @@
 import React from 'react';
 import { PageData, Paragraph, CustomFont, ImageConfig } from '../types';
-import { Plus, Trash2, Image as ImageIcon, Type, Quote, MessageSquare, X, ChevronDown, Move, Maximize2, RotateCcw, Box, AlignJustify, Info, AlertTriangle, Settings, Check, Layout } from 'lucide-react';
+import { Plus, Trash2, Image as ImageIcon, Type, Quote, MessageSquare, X, Move, Box, AlignJustify, Info, AlertTriangle, Settings, Layout } from 'lucide-react';
+import { Label, Input, TextArea, Slider, Section } from './ui/Base';
+import { FontSelect } from './ui/FontSelect';
 
 interface EditorProps {
   page: PageData;
@@ -10,65 +12,6 @@ interface EditorProps {
   enforceA4?: boolean;
 }
 
-// --- UI Components ---
-
-const Label = ({ children, icon: Icon, className = "" }: { children: React.ReactNode, icon?: any, className?: string }) => (
-  <label className={`block text-xs font-black text-slate-900 uppercase tracking-widest mb-2 flex items-center gap-3 ${className}`}>
-    {Icon && <Icon size={12} />}
-    {children}
-  </label>
-);
-
-const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-  <input
-    {...props}
-    className={`w-full bg-slate-50 border-transparent focus:border-[#264376] focus:bg-white focus:ring-2 focus:ring-[#264376]/20 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 transition-all placeholder-slate-400 ${props.className || ''}`}
-  />
-);
-
-const TextArea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
-  <textarea
-    {...props}
-    className={`w-full bg-slate-50 border-transparent focus:border-[#264376] focus:bg-white focus:ring-2 focus:ring-[#264376]/20 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 transition-all placeholder-slate-400 ${props.className || ''}`}
-  />
-);
-
-const Slider = ({ label, value, min, max, step, onChange, unit = "" }: { label: string, value: number, min: number, max: number, step: number, onChange: (val: number) => void, unit?: string }) => (
-  <div className="grid grid-cols-[110px_1fr_44px] items-center gap-2 group min-h-[24px]">
-    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-900 transition-colors truncate" title={label}>{label}</span>
-    <div className="flex items-center h-full">
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#264376] hover:brightness-110 transition-all"
-      />
-    </div>
-    <div className="relative flex items-center h-full">
-      <input
-        type="number"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full bg-transparent border border-transparent hover:bg-slate-50 hover:border-slate-200 focus:bg-white focus:border-[#264376] focus:ring-1 focus:ring-[#264376]/10 rounded px-1 py-0.5 text-[10px] font-bold font-mono text-slate-900 text-right focus:outline-none transition-all appearance-none" 
-      />
-    </div>
-  </div>
-);
-
-const Section = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
-  <section className={`space-y-4 ${className}`}>
-    {children}
-  </section>
-);
-
-// --- Editor Component ---
-
 const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflowing, enforceA4 }) => {
   const handleChange = (field: keyof PageData, value: any) => {
     onUpdate({ ...page, [field]: value });
@@ -76,22 +19,16 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
 
   const handleImageConfigChange = (field: keyof ImageConfig, value: number) => {
     const currentConfig = page.imageConfig || { scale: 1, x: 0, y: 0, height: page.type === 'cover' ? 500 : 300 };
-    
-    // --- A4 Growth Lock ---
     if (enforceA4 && isOverflowing) {
-       // If overflowing, only allow DECREASING values for parameters that affect height
        if (field === 'height' && value > currentConfig.height) return;
        if (field === 'scale' && value > currentConfig.scale) return;
     }
-    
     handleChange('imageConfig', { ...currentConfig, [field]: value });
   };
 
   const handleSpacingChange = (field: 'lineHeight' | 'paragraphSpacing', value: number) => {
-    // --- A4 Growth Lock ---
     if (enforceA4 && isOverflowing) {
       const currentValue = page[field] ?? (field === 'lineHeight' ? 1.6 : 32);
-      // If overflowing, block any increase in spacing
       if (value > currentValue) return;
     }
     handleChange(field, value);
@@ -122,32 +59,6 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
     const updated = page.paragraphs?.filter(p => p.id !== id);
     handleChange('paragraphs', updated);
   };
-
-  const FontSelect = ({ value, onChange, label }: { value?: string, onChange: (v: string) => void, label?: string }) => (
-    <div className="flex flex-col gap-1 w-full">
-      {label && <span className="text-[10px] uppercase font-bold text-slate-400">{label}</span>}
-      <div className="relative group">
-        <select 
-          value={value || ''} 
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full appearance-none bg-white text-xs font-medium text-slate-700 py-1.5 pl-2 pr-6 rounded hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[#264376]/20 cursor-pointer border border-transparent hover:border-slate-200"
-        >
-          <option value="">Default Font</option>
-          <optgroup label="Custom Fonts">
-            {customFonts.map(f => (
-              <option key={f.family} value={f.family}>{f.name}</option>
-            ))}
-          </optgroup>
-          <optgroup label="System">
-             <option value="'Inter', sans-serif">Inter</option>
-             <option value="'Crimson Pro', serif">Crimson Pro</option>
-             <option value="'Noto Serif SC', serif">Noto Serif SC</option>
-          </optgroup>
-        </select>
-        <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-      </div>
-    </div>
-  );
 
   const imgConfig = page.imageConfig || { scale: 1, x: 0, y: 0, height: page.type === 'cover' ? 500 : 300 };
 
@@ -187,11 +98,12 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
               </optgroup>
             )}
           </select>
-          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+            <Layout size={14} />
+          </div>
         </div>
       </Section>
 
-      {/* Main Image Section */}
       <Section>
         <div className="flex justify-between items-center mb-2">
           <Label icon={ImageIcon}>Main Image</Label>
@@ -239,35 +151,30 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
                 value={parseFloat(imgConfig.scale.toFixed(1))} 
                 min={1} max={5} step={0.1} 
                 onChange={(v) => handleImageConfigChange('scale', v)} 
-                unit="x"
               />
               <Slider 
                 label="X Offset" 
                 value={imgConfig.x} 
                 min={-100} max={100} step={1} 
                 onChange={(v) => handleImageConfigChange('x', v)} 
-                unit="%"
               />
               <Slider 
                 label="Y Offset" 
                 value={imgConfig.y} 
                 min={-100} max={100} step={1} 
                 onChange={(v) => handleImageConfigChange('y', v)} 
-                unit="%"
               />
               <Slider 
                 label="Height" 
                 value={imgConfig.height} 
                 min={100} max={800} step={10} 
                 onChange={(v) => handleImageConfigChange('height', v)} 
-                unit="px"
               />
             </div>
           </div>
         )}
       </Section>
 
-      {/* Spacing Settings */}
       <Section className="pt-6 border-t border-slate-100">
         <Label icon={AlignJustify}>Typography Spacing</Label>
         <div className="space-y-4 px-1">
@@ -276,26 +183,23 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
              value={parseFloat((page.lineHeight || 1.6).toFixed(1))} 
              min={1.0} max={2.5} step={0.1} 
              onChange={(v) => handleSpacingChange('lineHeight', v)} 
-             unit="x"
            />
            <Slider 
              label="Paragraph" 
              value={page.paragraphSpacing ?? 32} 
              min={0} max={100} step={4} 
              onChange={(v) => handleSpacingChange('paragraphSpacing', v)} 
-             unit="px"
            />
         </div>
       </Section>
 
-      {/* Headlines Section */}
       <Section className="pt-6 border-t border-slate-100">
         <Label icon={Type}>Headlines & Bylines</Label>
         <div className="space-y-6">
           <div className="space-y-2">
              <div className="flex justify-between items-end gap-2">
                 <span className="text-[10px] text-slate-400 font-bold uppercase">English Headline</span>
-                <div className="w-32"><FontSelect value={page.titleEnFont} onChange={(v) => handleChange('titleEnFont', v)} /></div>
+                <div className="w-32"><FontSelect customFonts={customFonts} value={page.titleEnFont} onChange={(v) => handleChange('titleEnFont', v)} /></div>
              </div>
              <TextArea
                 rows={2}
@@ -307,7 +211,7 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
           <div className="space-y-2">
              <div className="flex justify-between items-end gap-2">
                 <span className="text-[10px] text-slate-400 font-bold uppercase">Chinese Headline</span>
-                <div className="w-32"><FontSelect value={page.titleZhFont} onChange={(v) => handleChange('titleZhFont', v)} /></div>
+                <div className="w-32"><FontSelect customFonts={customFonts} value={page.titleZhFont} onChange={(v) => handleChange('titleZhFont', v)} /></div>
              </div>
              <TextArea
                 rows={2}
@@ -319,7 +223,7 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
           <div className="space-y-2">
              <div className="flex justify-between items-end gap-2">
                 <span className="text-[10px] text-slate-400 font-bold uppercase">Byline</span>
-                <div className="w-32"><FontSelect value={page.bylineFont} onChange={(v) => handleChange('bylineFont', v)} /></div>
+                <div className="w-32"><FontSelect customFonts={customFonts} value={page.bylineFont} onChange={(v) => handleChange('bylineFont', v)} /></div>
              </div>
              <Input
                 type="text"
@@ -335,7 +239,6 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
         <Section className="pt-6 border-t border-slate-100">
           <Label icon={Quote}>Cover Features</Label>
           <div className="space-y-8">
-             {/* Logo Section */}
              <div className="space-y-3">
                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                  <Box size={12} /> Custom Logo
@@ -375,13 +278,11 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
                       value={page.logoSize || 32}
                       min={16} max={200} step={4}
                       onChange={(v) => handleChange('logoSize', v)}
-                      unit="px"
                     />
                  </div>
                )}
              </div>
 
-             {/* Badge Section */}
              <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Badge</span>
@@ -422,12 +323,11 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
                 </div>
              </div>
 
-             {/* Quotes */}
              <div className="space-y-4">
                 <div className="space-y-2">
                     <div className="flex justify-between items-end gap-2">
                       <span className="text-[10px] text-slate-400 font-bold uppercase">Quote (EN)</span>
-                      <div className="w-32"><FontSelect value={page.quoteEnFont} onChange={(v) => handleChange('quoteEnFont', v)} /></div>
+                      <div className="w-32"><FontSelect customFonts={customFonts} value={page.quoteEnFont} onChange={(v) => handleChange('quoteEnFont', v)} /></div>
                     </div>
                     <TextArea
                       rows={2}
@@ -440,7 +340,7 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
                  <div className="space-y-2">
                     <div className="flex justify-between items-end gap-2">
                       <span className="text-[10px] text-slate-400 font-bold uppercase">Quote (ZH)</span>
-                      <div className="w-32"><FontSelect value={page.quoteZhFont} onChange={(v) => handleChange('quoteZhFont', v)} /></div>
+                      <div className="w-32"><FontSelect customFonts={customFonts} value={page.quoteZhFont} onChange={(v) => handleChange('quoteZhFont', v)} /></div>
                     </div>
                     <TextArea
                       rows={2}
@@ -457,8 +357,8 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
           <div className="flex justify-between items-center mb-4">
             <Label icon={MessageSquare} className="mb-0">Content</Label>
             <div className="flex gap-2 w-1/2">
-               <FontSelect value={page.paragraphEnFont} onChange={(v) => handleChange('paragraphEnFont', v)} label="EN" />
-               <FontSelect value={page.paragraphZhFont} onChange={(v) => handleChange('paragraphZhFont', v)} label="ZH" />
+               <FontSelect customFonts={customFonts} value={page.paragraphEnFont} onChange={(v) => handleChange('paragraphEnFont', v)} label="EN" />
+               <FontSelect customFonts={customFonts} value={page.paragraphZhFont} onChange={(v) => handleChange('paragraphZhFont', v)} label="ZH" />
             </div>
           </div>
           
@@ -504,7 +404,7 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
           <div className="mt-8 space-y-3 pt-6 border-t border-slate-100">
             <div className="flex justify-between items-end">
               <Label icon={Info}>Footnote</Label>
-              <div className="w-32"><FontSelect value={page.footnoteFont} onChange={(v) => handleChange('footnoteFont', v)} /></div>
+              <div className="w-32"><FontSelect customFonts={customFonts} value={page.footnoteFont} onChange={(v) => handleChange('footnoteFont', v)} /></div>
             </div>
             <TextArea
               className="h-20 text-xs"
@@ -549,7 +449,7 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
                 <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all shadow-sm ${page.hideDisclaimer ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
             </label>
-            <div className="w-24"><FontSelect value={page.footerFont} onChange={(v) => handleChange('footerFont', v)} /></div>
+            <div className="w-24"><FontSelect customFonts={customFonts} value={page.footerFont} onChange={(v) => handleChange('footerFont', v)} /></div>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
