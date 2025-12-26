@@ -77,8 +77,9 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
   const handleImageConfigChange = (field: keyof ImageConfig, value: number) => {
     const currentConfig = page.imageConfig || { scale: 1, x: 0, y: 0, height: page.type === 'cover' ? 500 : 300 };
     
-    // Lock parameters that cause growth if overflowing in A4 mode
+    // --- A4 Growth Lock ---
     if (enforceA4 && isOverflowing) {
+       // If overflowing, only allow DECREASING values for parameters that affect height
        if (field === 'height' && value > currentConfig.height) return;
        if (field === 'scale' && value > currentConfig.scale) return;
     }
@@ -87,8 +88,10 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
   };
 
   const handleSpacingChange = (field: 'lineHeight' | 'paragraphSpacing', value: number) => {
+    // --- A4 Growth Lock ---
     if (enforceA4 && isOverflowing) {
       const currentValue = page[field] ?? (field === 'lineHeight' ? 1.6 : 32);
+      // If overflowing, block any increase in spacing
       if (value > currentValue) return;
     }
     handleChange(field, value);
@@ -180,6 +183,7 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
             ) : (
               <optgroup label="Article Layouts">
                 <option value="classic-article">Modern Split</option>
+                <option value="blueprint-article">Engineering Blueprint</option>
               </optgroup>
             )}
           </select>

@@ -105,38 +105,61 @@ export default function EditorPage() {
 
   // 2. Persist to Database on Change (only after initial load)
   useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    
     if (projectId && isLoaded) {
-      const projectState = {
-        pages,
-        customFonts,
-        settings: { enforceA4 },
-        lastEdited: new Date().toISOString(),
-        title: pages[0]?.titleEn || 'Untitled Project'
-      };
-      
-      // Save to IndexedDB
-      saveProject(projectId, projectState);
+      const saveAction = async () => {
+        // Generate Thumbnail for Dashboard
+        let thumbnail = null;
+        if (previewRef.current) {
+          try {
+            const pageEl = previewRef.current.querySelector('.magazine-page') as HTMLElement;
+            if (pageEl) {
+              thumbnail = await toPng(pageEl, {
+                pixelRatio: 0.2, // Low res for fast loading
+                quality: 0.5,
+              });
+            }
+          } catch (e) {
+            console.error("Thumb failed", e);
+          }
+        }
 
-      // Update project index for Dashboard (keep summary in localStorage for fast listing)
-      const indexSaved = localStorage.getItem('magazine_recent_projects');
-      let index = indexSaved ? JSON.parse(indexSaved) : [];
-      
-      const existingIdx = index.findIndex((p: any) => p.id === projectId);
-      const projectSummary = {
-        id: projectId,
-        title: projectState.title,
-        date: new Date().toLocaleDateString(),
-        type: pages[0]?.layoutId || pages[0]?.type || 'Custom'
+        const projectState = {
+          pages,
+          customFonts,
+          settings: { enforceA4 },
+          lastEdited: new Date().toISOString(),
+          title: pages[0]?.titleEn || 'Untitled Project'
+        };
+        
+        saveProject(projectId, projectState);
+
+        const indexSaved = localStorage.getItem('magazine_recent_projects');
+        let index = indexSaved ? JSON.parse(indexSaved) : [];
+        
+        const existingIdx = index.findIndex((p: any) => p.id === projectId);
+        const projectSummary = {
+          id: projectId,
+          title: projectState.title,
+          date: new Date().toLocaleDateString(),
+          type: pages[0]?.layoutId || pages[0]?.type || 'Custom',
+          thumbnail // Store the base64 thumb in the index
+        };
+
+        if (existingIdx > -1) {
+          index[existingIdx] = projectSummary;
+        } else {
+          index.unshift(projectSummary);
+        }
+        
+        localStorage.setItem('magazine_recent_projects', JSON.stringify(index.slice(0, 12)));
       };
 
-      if (existingIdx > -1) {
-        index[existingIdx] = projectSummary;
-      } else {
-        index.unshift(projectSummary);
-      }
-      
-      localStorage.setItem('magazine_recent_projects', JSON.stringify(index.slice(0, 10)));
+      // Debounce save to avoid heavy thumbnail generation on every keystroke
+      timeout = setTimeout(saveAction, 1000);
     }
+    return () => clearTimeout(timeout);
   }, [pages, customFonts, enforceA4, projectId, isLoaded]);
 
   const currentPage = pages[currentPageIndex];
@@ -464,17 +487,19 @@ export default function EditorPage() {
       <motion.div 
         initial={{ x: -64 }}
         animate={{ x: 0 }}
-        className="w-16 bg-white border-r border-neutral-200 flex flex-col items-center py-4 gap-4 z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]"
+        className="w-16 bg-white border-r border-neutral-200 flex flex-col items-center z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]"
       >
-        <button 
-          onClick={() => navigate('/')}
-          className="p-2 bg-[#264376] text-white rounded-xl mb-4 shadow-lg shadow-[#264376]/20 hover:scale-110 active:scale-95 transition-all"
-          title="Back to Dashboard"
-        >
-          <Layout size={20} />
-        </button>
+        <div className="w-16 h-16 flex items-center justify-center shrink-0">
+          <button 
+            onClick={() => navigate('/')}
+            className="w-10 h-10 bg-[#264376] text-white rounded-xl shadow-lg shadow-[#264376]/20 hover:scale-110 active:scale-95 transition-all flex items-center justify-center font-black text-sm"
+            title="Back to Dashboard"
+          >
+            M
+          </button>
+        </div>
         
-        <div className="flex-1 w-full flex flex-col items-center gap-3 overflow-y-auto no-scrollbar pt-2">
+        <div className="flex-1 w-full flex flex-col items-center gap-3 overflow-y-auto no-scrollbar pt-2 pb-4">
           {pages.map((p, idx) => (
             <motion.button
               layout

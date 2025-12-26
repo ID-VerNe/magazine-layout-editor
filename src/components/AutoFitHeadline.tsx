@@ -18,56 +18,69 @@ const AutoFitHeadline: React.FC<AutoFitHeadlineProps> = ({
   fontFamily, 
   className, 
   maxLines, 
-  minSize = 12,
+  minSize = 8,
   as: Tag = 'h1' 
 }) => {
   const [fontSize, setFontSize] = useState(maxSize);
-  const [isFontReady, setIsFontReady] = useState(false);
+  const [version, setVersion] = useState(0); // Used to force re-checks
   const ref = useRef<HTMLHeadingElement>(null);
 
-  // Reset to max size when text or constraints change
+  // 1. Reset font size whenever content or container constraints change
   useLayoutEffect(() => {
     setFontSize(maxSize);
   }, [text, maxSize, fontFamily, maxLines]);
 
-  // Wait for fonts to be ready
-  useEffect(() => {
-    if (document.fonts) {
-      document.fonts.ready.then(() => setIsFontReady(true));
-    } else {
-      setIsFontReady(true);
-    }
-  }, [fontFamily]);
-
+  // 2. Core measurement and scaling logic
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el || !isFontReady) return;
+    if (!el) return;
 
     const checkAndScale = () => {
-      // Current allowed height
       const maxHeight = fontSize * lineHeight * maxLines; 
       
-      // If overflowing
-      if (el.scrollHeight > maxHeight + 2 && fontSize > minSize) {
+      // We use a very strict check (+1px tolerance)
+      if (el.scrollHeight > maxHeight + 1 && fontSize > minSize) {
         const ratio = maxHeight / el.scrollHeight;
-        if (ratio < 0.9) {
-          // Large jump for efficiency
+        if (ratio < 0.95) {
+          // Significant overflow: aggressive jump
           setFontSize(prev => Math.max(minSize, Math.floor(prev * ratio)));
         } else {
-          // Fine tuning
+          // Minor overflow: fine tuning
           setFontSize(prev => prev - 1);
         }
       }
     };
 
-    // Run immediately
+    // Run the check
     checkAndScale();
+  }, [text, fontSize, lineHeight, maxLines, minSize, version]);
 
-    // Also run after a tiny delay to catch any late layout shifts (common in Cinematic template)
-    const timer = setTimeout(checkAndScale, 50);
-    return () => clearTimeout(timer);
-    
-  }, [text, fontSize, lineHeight, maxLines, minSize, isFontReady]);
+  // 3. Handle initial load and font loading issues
+  useEffect(() => {
+    // Check when fonts are ready (crucial for initial load)
+    if (document.fonts) {
+      document.fonts.ready.then(() => {
+        setVersion(v => v + 1);
+      });
+    }
+
+    // Use ResizeObserver to catch any layout shifts or delayed renders
+    const observer = new ResizeObserver(() => {
+      setVersion(v => v + 1);
+    });
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    // Final fallback: check again after a short delay
+    const timeout = setTimeout(() => setVersion(v => v + 1), 500);
+
+    return () => {
+      observer.disconnect();
+      clearTimeout(timeout);
+    };
+  }, [text]); // Re-run observers when text changes
 
   return (
     <Tag 
@@ -79,7 +92,7 @@ const AutoFitHeadline: React.FC<AutoFitHeadlineProps> = ({
         lineHeight: lineHeight,
         display: 'block',
         wordBreak: 'break-word',
-        visibility: isFontReady ? 'visible' : 'hidden' // Avoid flash of unstyled text
+        visibility: fontSize === maxSize && text ? 'hidden' : 'visible' // Hide during first calc frame to avoid flicker
       }}
     >
       {text}

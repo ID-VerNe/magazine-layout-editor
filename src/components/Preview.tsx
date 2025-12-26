@@ -3,6 +3,7 @@ import { PageData } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import ClassicCover from './templates/ClassicCover';
 import ClassicArticle from './templates/ClassicArticle';
+import BlueprintArticle from './templates/BlueprintArticle';
 import ImpactBold from './templates/ImpactBold';
 import Cinematic from './templates/Cinematic';
 import Blueprint from './templates/Blueprint';
@@ -49,6 +50,7 @@ const Preview: React.FC<PreviewProps> = ({ page, pageIndex, totalPages, enforceA
     const templates: Record<string, React.ReactNode> = {
       'classic-cover': <ClassicCover page={page} />,
       'classic-article': <ClassicArticle page={page} />,
+      'blueprint-article': <BlueprintArticle page={page} />,
       'impact-bold': <ImpactBold page={page} />,
       'cinematic': <Cinematic page={page} />,
       'blueprint': <Blueprint page={page} />,
@@ -82,11 +84,12 @@ const Preview: React.FC<PreviewProps> = ({ page, pageIndex, totalPages, enforceA
 
   return (
     <div 
-      className="magazine-page relative shadow-2xl mx-auto border border-neutral-300 overflow-hidden"
+      className="magazine-page relative shadow-2xl mx-auto border border-neutral-300 overflow-hidden shrink-0"
       style={{ 
         width: '800px', 
         backgroundColor: page.backgroundColor || (page.layoutId === 'typography' ? '#020617' : '#FAF9F4'),
-        ...pageHeightStyle,
+        height: enforceA4 ? '1131px' : 'auto',
+        minHeight: '1131px',
         display: 'flex',
         flexDirection: 'column'
       }}
