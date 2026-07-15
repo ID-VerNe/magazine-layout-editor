@@ -7,7 +7,7 @@ import { UIProvider } from './context/UIContext';
 export default function App() {
   return (
     <UIProvider>
-      <BrowserRouter basename="/magazine">
+      <BrowserRouter>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/editor/:projectId" element={<EditorPage />} />

@@ -1,24 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Clock, Layout, FileText, ArrowRight, Trash2, Download, ChevronDown, ChevronUp, Copy } from 'lucide-react';
+import { Plus, Clock, Layout, FileText, ArrowRight, Trash2, Download, ChevronDown, ChevronUp, Copy, Github } from 'lucide-react';
 import { saveProject, deleteProjectData, getProject } from '../utils/db';
 import { useUI } from '../context/UIContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const TEMPLATES = [
-  { id: 'classic-cover', name: 'Classic Editorial', category: 'Cover', description: 'Traditional layout with hero imagery and bold serif headlines.', previewColor: 'bg-white', previewImage: '/magazine/previews/classic.png' },
-  { id: 'impact-bold', name: 'Impact Bold', category: 'Cover', description: 'Full-bleed imagery with high-contrast typography.', previewColor: 'bg-white', previewImage: '/magazine/previews/impact.png' },
-  { id: 'cinematic', name: 'Cinematic 16:9', category: 'Cover', description: 'Letterboxed 16:9 frame for epic scenic photography.', previewColor: 'bg-white', previewImage: '/magazine/previews/cinematic.png' },
-  { id: 'blueprint', name: 'Engineering Blueprint', category: 'Cover', description: 'Engineering style with grids, technical labels and monospace.', previewColor: 'bg-white', previewImage: '/magazine/previews/blueprints.png' },
-  { id: 'tabloid', name: 'Tabloid News', category: 'Cover', description: 'Aggressive, skewed typography with bold highlight blocks.', previewColor: 'bg-white', previewImage: '/magazine/previews/tabloid.png' },
-  { id: 'typography', name: 'Typographic Poster', category: 'Cover', description: 'Clean Swiss-style layout focusing on massive text graphics.', previewColor: 'bg-white', previewImage: '/magazine/previews/typography.png' },
+  { id: 'classic-cover', name: 'Classic Editorial', category: 'Cover', description: 'Traditional layout with hero imagery and bold serif headlines.', previewColor: 'bg-white', previewImage: '/previews/classic.png' },
+  { id: 'impact-bold', name: 'Impact Bold', category: 'Cover', description: 'Full-bleed imagery with high-contrast typography.', previewColor: 'bg-white', previewImage: '/previews/impact.png' },
+  { id: 'cinematic', name: 'Cinematic 16:9', category: 'Cover', description: 'Letterboxed 16:9 frame for epic scenic photography.', previewColor: 'bg-white', previewImage: '/previews/cinematic.png' },
+  { id: 'blueprint', name: 'Engineering Blueprint', category: 'Cover', description: 'Engineering style with grids, technical labels and monospace.', previewColor: 'bg-white', previewImage: '/previews/blueprints.png' },
+  { id: 'tabloid', name: 'Tabloid News', category: 'Cover', description: 'Aggressive, skewed typography with bold highlight blocks.', previewColor: 'bg-white', previewImage: '/previews/tabloid.png' },
+  { id: 'typography', name: 'Typographic Poster', category: 'Cover', description: 'Clean Swiss-style layout focusing on massive text graphics.', previewColor: 'bg-white', previewImage: '/previews/typography.png' },
   {
     id: 'classic-article',
     name: 'Modern Split',
     category: 'Article',
     description: 'Optimized dual-column bilingual reading experience.',
     previewColor: 'bg-white',
-    previewImage: '/magazine/previews/modern.png'
+    previewImage: '/previews/modern.png'
   },
   {
     id: 'blueprint-article',
@@ -26,7 +26,7 @@ const TEMPLATES = [
     category: 'Article',
     description: 'Technical dual-column layout with engineering grids and monospace.',
     previewColor: 'bg-white',
-    previewImage: '/magazine/previews/blueprints_article.png'
+    previewImage: '/previews/blueprints_article.png'
   },
 ];
 
@@ -129,6 +129,13 @@ export default function Dashboard() {
           </div>
           <span className="font-black text-lg tracking-widest text-slate-900 uppercase ml-2">MagaEditor</span>
         </div>
+        <a
+          href="https://github.com/ID-VerNe/magazine-layout-editor"
+          target="_blank"
+          className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-[#264376] bg-slate-50 hover:bg-white border border-slate-200 rounded-xl transition-all shadow-sm active:scale-95"
+        >
+          <Github size={14} /> GitHub
+        </a>
       </nav>
 
       <main className="w-[94%] mx-auto py-6 space-y-10">
