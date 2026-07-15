@@ -3,7 +3,3 @@ main = "worker.js"
 compatibility_date = "2026-07-15"
 
 assets = { directory = "./dist", binding = "ASSETS" }
-
-routes = [
-  { pattern = "magazine.yuuverne.eu.org/*", zone_name = "yuuverne.eu.org" }
-]
