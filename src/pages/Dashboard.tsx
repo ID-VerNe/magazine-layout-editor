@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Clock, Layout, FileText, ArrowRight, Trash2, Download, ChevronDown, ChevronUp, Copy, Github } from 'lucide-react';
+import { Plus, Clock, Layout, FileText, ArrowRight, Trash2, Download, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { saveProject, deleteProjectData, getProject } from '../utils/db';
 import { useUI } from '../context/UIContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -129,13 +129,6 @@ export default function Dashboard() {
           </div>
           <span className="font-black text-lg tracking-widest text-slate-900 uppercase ml-2">MagaEditor</span>
         </div>
-        <a
-          href="https://github.com/ID-VerNe/magazine-layout-editor"
-          target="_blank"
-          className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-[#264376] bg-slate-50 hover:bg-white border border-slate-200 rounded-xl transition-all shadow-sm active:scale-95"
-        >
-          <Github size={14} /> GitHub
-        </a>
       </nav>
 
       <main className="w-[94%] mx-auto py-6 space-y-10">
