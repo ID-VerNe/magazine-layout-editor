@@ -7,6 +7,7 @@ export interface Paragraph {
   zh: string;
   enFont?: string;
   zhFont?: string;
+  emphasis?: boolean;
 }
 
 export interface ImageConfig {
@@ -25,10 +26,23 @@ export interface PageData {
   image: string;
   logo?: string; 
   logoSize?: number;
+  logoX?: number;
+  logoY?: number;
   badgeColor?: string;
   badgeRadius?: number;
   hideDisclaimer?: boolean;
   backgroundColor?: string;
+  accentColor?: string;
+  showApprovedStamp?: boolean;
+  imagePosition?: 'middle' | 'bottom' | 'absolute-bottom';
+  footerSwap?: boolean;
+  footerRightType?: 'text' | 'logo';
+  footerLogo?: string;
+  footerLogoSize?: number;
+  footerRightX?: number;
+  footerRightY?: number;
+  splitRatio?: number; // 英文占比，默认 60
+  fontBalance?: number; // 调整语种间的相对大小，默认 0
   imageConfig?: ImageConfig;
   titleEn: string;
   titleZh: string;
@@ -64,12 +78,14 @@ export interface CustomFont {
   dataUrl?: string; // Store actual font data for export/import
 }
 
+export type PageSize = 'A4' | '9:15' | 'Unlimited';
+
 export interface ProjectData {
   version: string;
   pages: PageData[];
   customFonts: CustomFont[];
   settings: {
-    enforceA4: boolean;
+    pageSize: PageSize;
   }
 }
 

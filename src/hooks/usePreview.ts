@@ -1,12 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { PageSize } from '../types';
 
 interface UsePreviewOptions {
-  enforceA4: boolean;
+  pageSize: PageSize;
   pages: any[];
   currentPageIndex: number;
 }
 
-export function usePreview({ enforceA4, pages, currentPageIndex }: UsePreviewOptions) {
+export function usePreview({ pageSize, pages, currentPageIndex }: UsePreviewOptions) {
   const [previewZoom, setPreviewZoom] = useState(0.8);
   const [isAutoFit, setIsAutoFit] = useState(true);
   const [pagesOverflow, setPagesOverflow] = useState<Record<string, boolean>>({});
@@ -34,7 +35,7 @@ export function usePreview({ enforceA4, pages, currentPageIndex }: UsePreviewOpt
 
     const availableHeight = containerHeight - padding;
     return Math.min(Math.max(0.1, availableHeight / targetHeight), 1.5);
-  }, [enforceA4, pages, currentPageIndex]);
+  }, [pageSize, pages, currentPageIndex]);
 
   useEffect(() => {
     if (!previewContainerRef.current) return;
@@ -63,7 +64,7 @@ export function usePreview({ enforceA4, pages, currentPageIndex }: UsePreviewOpt
     if (isAutoFit) {
       setPreviewZoom(calculateFitZoom());
     }
-  }, [currentPageIndex, enforceA4, isAutoFit, calculateFitZoom, pages]);
+  }, [currentPageIndex, pageSize, isAutoFit, calculateFitZoom, pages]);
 
   const handleManualZoom = (value: number) => {
     setIsAutoFit(false);

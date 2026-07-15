@@ -1,6 +1,6 @@
 import React from 'react';
 import Preview from '../Preview';
-import { PageData } from '../../types';
+import { PageData, PageSize } from '../../types';
 
 interface PreviewAreaProps {
   pages: PageData[];
@@ -8,7 +8,7 @@ interface PreviewAreaProps {
   previewZoom: number;
   previewRef: React.RefObject<HTMLDivElement | null>;
   previewContainerRef: React.RefObject<HTMLDivElement | null>;
-  enforceA4: boolean;
+  pageSize: PageSize;
   onOverflowChange: (pageId: string, isOverflowing: boolean) => void;
 }
 
@@ -18,7 +18,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
   previewZoom,
   previewRef,
   previewContainerRef,
-  enforceA4,
+  pageSize,
   onOverflowChange
 }) => {
   return (
@@ -37,7 +37,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
               page={page} 
               pageIndex={idx} 
               totalPages={pages.length} 
-              enforceA4={enforceA4} 
+              pageSize={pageSize} 
               onOverflowChange={(overflow) => onOverflowChange(page.id, overflow)}
             />
           </div>

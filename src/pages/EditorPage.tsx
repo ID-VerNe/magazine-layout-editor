@@ -24,8 +24,8 @@ export default function EditorPage() {
     currentPage,
     customFonts,
     setCustomFonts,
-    enforceA4,
-    setEnforceA4,
+    pageSize,
+    setPageSize,
     isLoaded,
     updatePage,
     addPage,
@@ -46,7 +46,7 @@ export default function EditorPage() {
     handleManualZoom,
     toggleFit,
     handleOverflowChange
-  } = usePreview({ enforceA4, pages, currentPageIndex });
+  } = usePreview({ pageSize, pages, currentPageIndex });
 
   const [isExporting, setIsExporting] = useState(false);
   const [showFontManager, setShowFontManager] = useState(false);
@@ -61,7 +61,7 @@ export default function EditorPage() {
       timeout = setTimeout(() => saveToDB(previewRef), 1000);
     }
     return () => clearTimeout(timeout);
-  }, [pages, customFonts, enforceA4, projectId, isLoaded, saveToDB, previewRef]);
+  }, [pages, customFonts, pageSize, projectId, isLoaded, saveToDB, previewRef]);
 
   // Outside click for export menu
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function EditorPage() {
         const dataUrl = await toPng(targetElement, {
           quality: 1,
           pixelRatio: 2,
-          backgroundColor: '#ffffff',
+          backgroundColor: pagesToExport[i].backgroundColor || '#FAF9F4',
         });
         
         const link = document.createElement('a');
@@ -157,8 +157,8 @@ export default function EditorPage() {
             currentPageIndex={currentPageIndex}
             totalPages={pages.length}
             onPageChange={setCurrentPageIndex}
-            enforceA4={enforceA4}
-            onToggleEnforceA4={() => setEnforceA4(!enforceA4)}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
             previewZoom={previewZoom}
             onZoomChange={handleManualZoom}
             isAutoFit={isAutoFit}
@@ -176,7 +176,7 @@ export default function EditorPage() {
             previewZoom={previewZoom}
             previewRef={previewRef}
             previewContainerRef={previewContainerRef}
-            enforceA4={enforceA4}
+            pageSize={pageSize}
             onOverflowChange={handleOverflowChange}
           />
 
@@ -200,7 +200,7 @@ export default function EditorPage() {
           onRemovePage={removePage}
           customFonts={customFonts}
           isOverflowing={pagesOverflow[currentPage.id]}
-          enforceA4={enforceA4}
+          enforceA4={pageSize !== 'Unlimited'}
         />
       </div>
     </div>

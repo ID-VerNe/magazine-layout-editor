@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Bold, Italic, Underline, Strikethrough } from 'lucide-react';
 
 export const Label = ({ children, icon: Icon, className = "" }: { children: React.ReactNode, icon?: any, className?: string }) => (
   <label className={`block text-xs font-black text-slate-900 uppercase tracking-widest mb-2 flex items-center gap-3 ${className}`}>
@@ -7,22 +8,83 @@ export const Label = ({ children, icon: Icon, className = "" }: { children: Reac
   </label>
 );
 
-export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => (
+export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(({ value, ...props }, ref) => (
   <input
     {...props}
+    value={value ?? ''}
     ref={ref}
     className={`w-full bg-slate-50 border-transparent focus:border-[#264376] focus:bg-white focus:ring-2 focus:ring-[#264376]/20 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 transition-all placeholder-slate-400 ${props.className || ''}`}
   />
 ));
 Input.displayName = 'Input';
 
-export const TextArea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>((props, ref) => (
-  <textarea
-    {...props}
-    ref={ref}
-    className={`w-full bg-slate-50 border-transparent focus:border-[#264376] focus:bg-white focus:ring-2 focus:ring-[#264376]/20 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 transition-all placeholder-slate-400 ${props.className || ''}`}
-  />
-));
+export const TextArea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(({ value, onChange, onFocus, onBlur, ...props }, ref) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const internalRef = React.useRef<HTMLTextAreaElement>(null);
+  
+  const insertFormat = (prefix: string, suffix: string) => {
+    const el = internalRef.current;
+    if (!el) return;
+
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const text = el.value;
+    const selected = text.substring(start, end);
+    const before = text.substring(0, start);
+    const after = text.substring(end);
+
+    const newValue = `${before}${prefix}${selected}${suffix}${after}`;
+    
+    const event = {
+      target: { value: newValue }
+    } as React.ChangeEvent<HTMLTextAreaElement>;
+    
+    if (onChange) onChange(event);
+
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + prefix.length, end + prefix.length);
+    }, 0);
+  };
+
+  const handleFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    setIsFocused(true);
+    if (onFocus) onFocus(e);
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    setIsFocused(false);
+    if (onBlur) onBlur(e);
+  };
+
+  return (
+    <div className="relative w-full">
+      <div 
+        className={`absolute -top-9 right-0 flex items-center gap-1 bg-white border border-slate-200 shadow-xl rounded-md p-1 transition-all duration-200 z-30 ${ 
+          isFocused ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-1 pointer-events-none'
+        }`}
+      >
+        <button type="button" onMouseDown={(e) => { e.preventDefault(); insertFormat('\\b{', '}'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="Bold"><Bold size={12} /></button>
+        <button type="button" onMouseDown={(e) => { e.preventDefault(); insertFormat('\\i{', '}'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="Italic"><Italic size={12} /></button>
+        <button type="button" onMouseDown={(e) => { e.preventDefault(); insertFormat('\\u{', '}'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="Underline"><Underline size={12} /></button>
+        <button type="button" onMouseDown={(e) => { e.preventDefault(); insertFormat('\\s{', '}'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="Strikethrough"><Strikethrough size={12} /></button>
+      </div>
+      <textarea
+        {...props}
+        value={value ?? ''}
+        onChange={onChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        ref={(node) => {
+          if (typeof ref === 'function') ref(node);
+          else if (ref) (ref as React.MutableRefObject<HTMLTextAreaElement | null>).current = node;
+          (internalRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = node;
+        }}
+        className={`w-full bg-slate-50 border-transparent focus:border-[#367237] focus:bg-white focus:ring-2 focus:ring-[#367237]/20 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 transition-all placeholder-slate-400 ${props.className || ''}`}
+      />
+    </div>
+  );
+});
 TextArea.displayName = 'TextArea';
 
 export const Section = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (

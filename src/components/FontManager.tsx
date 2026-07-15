@@ -1,6 +1,4 @@
-
-import React, { useCallback } from 'react';
-// Added Type to the lucide-react imports to fix "Cannot find name 'Type'" error
+import React from 'react';
 import { Upload, X, Type } from 'lucide-react';
 import { CustomFont } from '../types';
 
@@ -10,22 +8,6 @@ interface FontManagerProps {
 }
 
 const FontManager: React.FC<FontManagerProps> = ({ fonts, onFontsChange }) => {
-  const registerFont = useCallback((name: string, dataUrl: string) => {
-    const family = `custom-${Date.now()}-${name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
-    const style = document.createElement('style');
-    style.id = `style-${family}`;
-    style.innerHTML = `
-      @font-face {
-        font-family: '${family}';
-        src: url('${dataUrl}');
-        font-weight: normal;
-        font-style: normal;
-      }
-    `;
-    document.head.appendChild(style);
-    return family;
-  }, []);
-
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -34,7 +16,10 @@ const FontManager: React.FC<FontManagerProps> = ({ fonts, onFontsChange }) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const dataUrl = event.target?.result as string;
-        const family = registerFont(file.name, dataUrl);
+        // Generate a clean family name
+        const family = `custom-${Date.now()}-${file.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+        
+        // Just update the list, the hook (useProject) now handles automatic DOM registration
         onFontsChange(prev => [...prev, { name: file.name, family, dataUrl }]);
       };
       reader.readAsDataURL(file);
@@ -60,7 +45,6 @@ const FontManager: React.FC<FontManagerProps> = ({ fonts, onFontsChange }) => {
       <div className="max-h-60 overflow-y-auto space-y-2 pr-1 no-scrollbar">
         {fonts.length === 0 ? (
           <div className="flex flex-col items-center py-6 text-neutral-400 gap-2">
-             {/* Fix: Type component now imported from lucide-react */}
              <Type size={24} className="opacity-20" />
              <p className="text-[10px] font-bold text-center uppercase tracking-widest">No custom fonts</p>
           </div>

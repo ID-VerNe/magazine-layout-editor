@@ -2,12 +2,14 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, ZoomOut, ZoomIn, Maximize, Minimize2, Download, ChevronDown } from 'lucide-react';
 
+import { PageSize } from '../../types';
+
 interface TopNavProps {
   currentPageIndex: number;
   totalPages: number;
   onPageChange: (index: number) => void;
-  enforceA4: boolean;
-  onToggleEnforceA4: () => void;
+  pageSize: PageSize;
+  onPageSizeChange: (size: PageSize) => void;
   previewZoom: number;
   onZoomChange: (zoom: number) => void;
   isAutoFit: boolean;
@@ -23,8 +25,8 @@ const TopNav: React.FC<TopNavProps> = ({
   currentPageIndex,
   totalPages,
   onPageChange,
-  enforceA4,
-  onToggleEnforceA4,
+  pageSize,
+  onPageSizeChange,
   previewZoom,
   onZoomChange,
   isAutoFit,
@@ -40,15 +42,24 @@ const TopNav: React.FC<TopNavProps> = ({
       <div className="flex items-center gap-3">
         <span className="font-bold text-slate-800 tracking-tight">Preview</span>
         <div className="h-4 w-[1px] bg-slate-200" />
-        <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-md font-bold uppercase tracking-wider">Page {currentPageIndex + 1}</span>
+        <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-md font-bold uppercase tracking-wider mr-2">Page {currentPageIndex + 1}</span>
         
-        <button 
-          onClick={onToggleEnforceA4}
-          className={`ml-4 flex items-center gap-1.5 px-2 py-1 rounded border transition-all text-[10px] font-bold uppercase ${enforceA4 ? 'bg-[#264376] border-[#264376] text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-        >
-          <Maximize size={10} />
-          Fixed A4
-        </button>
+        {/* Segmented Control for Page Size */}
+        <div className="flex bg-slate-100 p-1 rounded-lg">
+          {(['A4', '9:15', 'Unlimited'] as PageSize[]).map((size) => (
+            <button
+              key={size}
+              onClick={() => onPageSizeChange(size)}
+              className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider transition-all rounded-md ${
+                pageSize === size 
+                  ? 'bg-[#264376] text-white shadow-md' 
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              {size}
+            </button>
+          ))}
+        </div>
       </div>
       
       <div className="flex items-center gap-6">

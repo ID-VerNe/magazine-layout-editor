@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { PageData, CustomFont, ProjectData, PageType } from '../types';
+import { PageData, CustomFont, ProjectData, PageType, PageSize } from '../types';
 import { getProject, saveProject } from '../utils/db';
 import { toPng } from 'html-to-image';
 import { useUI } from '../context/UIContext';
@@ -8,6 +8,7 @@ const DEFAULT_PAGES: PageData[] = [
   {
     id: 'page-1',
     type: 'cover',
+    layoutId: 'classic-cover',
     image: 'https://picsum.photos/id/43/1200/1600',
     titleEn: 'Example English Title',
     titleZh: '示例中文标题',
@@ -18,13 +19,25 @@ const DEFAULT_PAGES: PageData[] = [
     footerLeft: 'Footer Left Label',
     footerRight: 'Footer Right Label',
     lineHeight: 1.6,
+    paragraphSpacing: 32,
     backgroundColor: '#FAF9F4',
+    accentColor: '#367237',
+    splitRatio: 64,
+    fontBalance: 0,
+    footerSwap: false,
+    footerRightType: 'text',
+    footerLogoSize: 24,
+    footerRightX: 0,
+    footerRightY: 0,
     titleEnFont: "'Inter', sans-serif",
     titleZhFont: "'Crimson Pro', serif",
     paragraphEnFont: "'Inter', sans-serif",
     paragraphZhFont: "'Crimson Pro', serif",
     bylineFont: "'Inter', sans-serif",
-    footerFont: "'Inter', sans-serif"
+    footerFont: "'Inter', sans-serif",
+    footnoteFont: "'Inter', sans-serif",
+    quoteEnFont: "'Inter', sans-serif",
+    quoteZhFont: "'Crimson Pro', serif"
   }
 ];
 
@@ -36,8 +49,6 @@ export const registerFontInDOM = (family: string, dataUrl: string) => {
     @font-face {
       font-family: '${family}';
       src: url('${dataUrl}');
-      font-weight: normal;
-      font-style: normal;
     }
   `;
   document.head.appendChild(style);
@@ -47,7 +58,7 @@ export function useProject(projectId: string | undefined, templateId: string | n
   const { alert, confirm } = useUI();
   const [pages, setPages] = useState<PageData[]>(DEFAULT_PAGES);
   const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
-  const [enforceA4, setEnforceA4] = useState(true);
+  const [pageSize, setPageSize] = useState<PageSize>('A4');
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
@@ -57,11 +68,12 @@ export function useProject(projectId: string | undefined, templateId: string | n
       if (projectId) {
         const savedData = await getProject(projectId);
         if (savedData) {
+          const loadedFonts = savedData.customFonts || [];
+          setCustomFonts(loadedFonts);
           setPages(savedData.pages || DEFAULT_PAGES);
-          setCustomFonts(savedData.customFonts || []);
-          setEnforceA4(savedData.settings?.enforceA4 ?? true);
+          setPageSize(savedData.settings?.pageSize || 'A4');
           
-          savedData.customFonts?.forEach((font: CustomFont) => {
+          loadedFonts.forEach((font: CustomFont) => {
             if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
           });
         } else if (templateId) {
@@ -99,7 +111,16 @@ export function useProject(projectId: string | undefined, templateId: string | n
     loadData();
   }, [projectId, templateId]);
 
-  // Persist to DB
+  const updateCustomFonts = useCallback((update: CustomFont[] | ((prev: CustomFont[]) => CustomFont[])) => {
+    setCustomFonts(prev => {
+      const nextFonts = typeof update === 'function' ? update(prev) : update;
+      nextFonts.forEach(font => {
+        if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
+      });
+      return nextFonts;
+    });
+  }, []);
+
   const saveToDB = useCallback(async (previewRef: React.RefObject<HTMLDivElement | null>) => {
     if (!projectId || !isLoaded) return;
 
@@ -111,6 +132,7 @@ export function useProject(projectId: string | undefined, templateId: string | n
           thumbnail = await toPng(pageEl, {
             pixelRatio: 0.2,
             quality: 0.5,
+            backgroundColor: pages[0]?.backgroundColor || '#FAF9F4',
           });
         }
       } catch (e) {
@@ -121,7 +143,7 @@ export function useProject(projectId: string | undefined, templateId: string | n
     const projectState = {
       pages,
       customFonts,
-      settings: { enforceA4 },
+      settings: { pageSize },
       lastEdited: new Date().toISOString(),
       title: pages[0]?.titleEn || 'Untitled Project'
     };
@@ -147,18 +169,12 @@ export function useProject(projectId: string | undefined, templateId: string | n
     }
     
     localStorage.setItem('magazine_recent_projects', JSON.stringify(index.slice(0, 12)));
-  }, [pages, customFonts, enforceA4, projectId, isLoaded]);
-
-  useEffect(() => {
-    // We can't easily trigger the thumbnail generation here without passing the ref
-    // For now, let's just save the data. The thumbnail will be updated when saveToDB is called explicitly or handled in EditorPage
-  }, [pages, customFonts, enforceA4]);
+  }, [pages, customFonts, pageSize, projectId, isLoaded]);
 
   const updatePage = (updatedPage: PageData) => {
     const originalPage = pages.find(p => p.id === updatedPage.id);
     if (!originalPage) return;
     
-    // Type Switching Logic
     if (updatedPage.type !== originalPage.type) {
       if (updatedPage.type === 'article') {
         updatedPage.lastCoverLayoutId = originalPage.layoutId;
@@ -181,10 +197,14 @@ export function useProject(projectId: string | undefined, templateId: string | n
     const fontFields: Array<keyof PageData> = [
       'titleEnFont', 'titleZhFont', 'bylineFont', 'quoteEnFont', 'quoteZhFont',
       'footerFont', 'paragraphEnFont', 'paragraphZhFont', 'footnoteFont',
-      'lineHeight', 'paragraphSpacing', 'backgroundColor'
+      'backgroundColor', 'accentColor', 'splitRatio', 'fontBalance',
+      'footerSwap', 'footerRightType', 'footerLogo', 'footerLogoSize', 'footerRightX', 'footerRightY',
+      'logoX', 'logoY'
     ];
     
-    const changedFontFields: Array<keyof PageData> = fontFields.filter(field => originalPage[field] !== updatedPage[field]);
+    const changedFontFields: Array<keyof PageData> = fontFields.filter(field => 
+      updatedPage[field] !== undefined && originalPage[field] !== updatedPage[field]
+    );
     
     if (changedFontFields.length > 0) {
       setPages(prev => prev.map(page => {
@@ -193,8 +213,10 @@ export function useProject(projectId: string | undefined, templateId: string | n
            Object.assign(updatedPageData, updatedPage);
         }
         changedFontFields.forEach(field => {
-          // @ts-ignore
-          updatedPageData[field] = updatedPage[field];
+          if (updatedPage[field] !== undefined) {
+            // @ts-ignore
+            updatedPageData[field] = updatedPage[field];
+          }
         });
         return updatedPageData;
       }));
@@ -263,29 +285,47 @@ export function useProject(projectId: string | undefined, templateId: string | n
             byline: 'Author Name',
             footerLeft: 'Footer L',
             footerRight: 'Footer R',
-            lineHeight: 1.6
+            lineHeight: 1.6,
+            backgroundColor: '#FAF9F4',
+            accentColor: '#367237',
+            splitRatio: 64,
+            fontBalance: 0,
+            titleEnFont: "'Inter', sans-serif",
+            titleZhFont: "'Crimson Pro', serif",
+            bylineFont: "'Inter', sans-serif",
+            footerFont: "'Inter', sans-serif"
           }
         ]);
+        setPageSize('A4');
         setCurrentPageIndex(0);
       }
     );
   };
 
   const handleExportProject = () => {
-    const project: ProjectData = {
-      version: "1.0",
-      pages,
-      customFonts,
-      settings: { enforceA4 }
-    };
-    
-    const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `project-${new Date().toISOString().slice(0, 10)}.wdzmaga`;
-    link.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => {
+      try {
+        const project: ProjectData = {
+          version: "1.0",
+          pages,
+          customFonts,
+          settings: { pageSize }
+        };
+        const json = JSON.stringify(project);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `project-${new Date().toISOString().slice(0, 10)}.wdzmaga`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error("Export failed", e);
+        alert("导出失败", "打包项目数据时出错。");
+      }
+    }, 100);
   };
 
   const handleImportProject = (file: File) => {
@@ -293,22 +333,17 @@ export function useProject(projectId: string | undefined, templateId: string | n
     reader.onload = (event) => {
       try {
         const project: ProjectData = JSON.parse(event.target?.result as string);
-        
         project.customFonts.forEach(font => {
-          if (font.dataUrl) {
-            registerFontInDOM(font.family, font.dataUrl);
-          }
+          if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
         });
-        
         setCustomFonts(project.customFonts || []);
         setPages(project.pages || DEFAULT_PAGES);
-        setEnforceA4(project.settings?.enforceA4 ?? true);
+        setPageSize(project.settings?.pageSize || 'A4');
         setCurrentPageIndex(0);
-        
-        alert("Import Success", "Project data has been loaded successfully.");
+        alert("导入成功", "项目数据及自定义字体已全部加载。");
       } catch (err) {
         console.error("Import failed:", err);
-        alert("Import Error", "Failed to import project. Invalid file format.");
+        alert("导入失败", "文件格式无效或已损坏。");
       }
     };
     reader.readAsText(file);
@@ -321,9 +356,9 @@ export function useProject(projectId: string | undefined, templateId: string | n
     setCurrentPageIndex,
     currentPage: pages[currentPageIndex],
     customFonts,
-    setCustomFonts,
-    enforceA4,
-    setEnforceA4,
+    setCustomFonts: updateCustomFonts,
+    pageSize,
+    setPageSize,
     isLoaded,
     updatePage,
     addPage,

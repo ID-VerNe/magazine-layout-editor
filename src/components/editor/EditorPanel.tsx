@@ -46,13 +46,13 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
         <div className="bg-slate-100 p-1 rounded-lg flex text-xs font-black uppercase tracking-widest">
           <button
             onClick={() => onUpdatePage({ ...currentPage, type: 'cover' })}
-            className={`flex-1 py-2 px-3 rounded-md transition-all ${currentPage.type === 'cover' ? 'bg-white text-[#264376] shadow-md border border-slate-200/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+            className={`flex-1 py-2 px-3 rounded-md transition-all ${currentPage.type === 'cover' ? 'bg-[#264376] text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
           >
             Cover
           </button>
           <button
             onClick={() => onUpdatePage({ ...currentPage, type: 'article' })}
-            className={`flex-1 py-2 px-3 rounded-md transition-all ${currentPage.type === 'article' ? 'bg-white text-[#264376] shadow-md border border-slate-200/50' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
+            className={`flex-1 py-2 px-3 rounded-md transition-all ${currentPage.type === 'article' ? 'bg-[#264376] text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
           >
             Article
           </button>
