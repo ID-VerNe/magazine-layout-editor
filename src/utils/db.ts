@@ -3,7 +3,7 @@
  */
 const DB_NAME = 'MagaEditorDB';
 const STORE_NAME = 'projects';
-const DB_VERSION = 1;
+const DB_VERSION = 3;
 
 export const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {

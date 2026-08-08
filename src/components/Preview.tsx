@@ -10,6 +10,7 @@ import Cinematic from './templates/Cinematic';
 import Blueprint from './templates/Blueprint';
 import Tabloid from './templates/Tabloid';
 import Typography from './templates/Typography';
+import { IntensiveReading } from './templates/IntensiveReading';
 
 interface PreviewProps {
   page: PageData;
@@ -73,6 +74,7 @@ const Preview: React.FC<PreviewProps> = ({ page, pageIndex, totalPages, pageSize
       'blueprint': <Blueprint {...props} />,
       'tabloid': <Tabloid {...props} />,
       'typography': <Typography {...props} />,
+      'intensive-reading': <IntensiveReading {...props} />,
     };
     return templates[page.layoutId || ''] || (page.type === 'cover' ? templates['classic-cover'] : templates['classic-article']);
   };

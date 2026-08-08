@@ -36,6 +36,7 @@ export const LayoutSection: React.FC<SectionProps> = ({ page, onUpdate }) => {
               <option value="classic-article">Modern Split</option>
               <option value="modern-vertical">Modern Vertical</option>
               <option value="blueprint-article">Engineering Blueprint</option>
+              <option value="intensive-reading">Intensive Reading</option>
             </optgroup>
           )}
         </select>

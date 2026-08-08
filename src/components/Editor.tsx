@@ -12,6 +12,7 @@ import { ColorsSection } from './editor/sections/ColorsSection';
 import { FooterSection } from './editor/sections/FooterSection';
 import { BlueprintSettingsSection } from './editor/sections/BlueprintSettingsSection';
 import { ArticleAdvancedSection } from './editor/sections/ArticleAdvancedSection';
+import { IntensiveContentSection } from './editor/sections/IntensiveContentSection';
 
 interface EditorProps {
   page: PageData;
@@ -31,7 +32,8 @@ const LAYOUT_CONFIG: Record<string, string[]> = {
   'typography': ['layout', 'headlines', 'cover-features', 'colors', 'footer'],
   'classic-article': ['layout', 'image', 'headlines', 'content', 'advanced', 'colors', 'footer'],
   'modern-vertical': ['layout', 'image', 'headlines', 'content', 'advanced', 'colors', 'footer'],
-  'blueprint-article': ['layout', 'image', 'headlines', 'content', 'advanced', 'colors', 'footer']
+  'blueprint-article': ['layout', 'image', 'headlines', 'content', 'advanced', 'colors', 'footer'],
+  'intensive-reading': ['layout', 'image', 'headlines', 'intensive-content', 'advanced', 'colors', 'footer']
 };
 
 const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflowing, enforceA4 }) => {
@@ -50,6 +52,8 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
         return <CoverFeaturesSection key="cover-features" page={page} onUpdate={onUpdate} customFonts={customFonts} />;
       case 'content':
         return <ArticleContentSection key="content" page={page} onUpdate={onUpdate} customFonts={customFonts} />;
+      case 'intensive-content':
+        return <IntensiveContentSection key="intensive-content" page={page} onUpdate={onUpdate} customFonts={customFonts} />;
       case 'colors':
         return <ColorsSection key="colors" page={page} onUpdate={onUpdate} />;
       case 'footer':

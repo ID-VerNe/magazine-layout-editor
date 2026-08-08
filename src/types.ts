@@ -1,6 +1,15 @@
 
 export type PageType = 'cover' | 'article';
 
+export interface ExternalAnnotation {
+  id: string;
+  seq: number;
+  text: string;
+  from: number;
+  to: number;
+  comment?: string;
+}
+
 export interface Paragraph {
   id: string;
   en: string;
@@ -70,6 +79,13 @@ export interface PageData {
   // Article specific
   paragraphs?: Paragraph[];
   footnote?: string;
+  
+  // Intensive reading layout specific
+  leftContent?: string;
+  rightContent?: string;
+  annotations?: ExternalAnnotation[];
+  annotationStyle?: 'dual' | 'single';
+  annotationTheme?: 'highlight' | 'underline' | 'both';
 }
 
 export interface CustomFont {
