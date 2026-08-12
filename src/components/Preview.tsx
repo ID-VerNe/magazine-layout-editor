@@ -109,4 +109,9 @@ const Preview: React.FC<PreviewProps> = ({ page, pageIndex, totalPages, pageSize
   );
 };
 
-export default Preview;
+export default React.memo(Preview, (prevProps, nextProps) => {
+  return prevProps.page === nextProps.page &&
+         prevProps.pageIndex === nextProps.pageIndex &&
+         prevProps.totalPages === nextProps.totalPages &&
+         prevProps.pageSize === nextProps.pageSize;
+});

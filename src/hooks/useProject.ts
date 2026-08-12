@@ -121,11 +121,11 @@ export function useProject(projectId: string | undefined, templateId: string | n
     });
   }, []);
 
-  const saveToDB = useCallback(async (previewRef: React.RefObject<HTMLDivElement | null>) => {
+  const saveToDB = useCallback(async (previewRef: React.RefObject<HTMLDivElement | null>, options?: { generateThumbnail?: boolean }) => {
     if (!projectId || !isLoaded) return;
 
     let thumbnail = null;
-    if (previewRef.current) {
+    if (previewRef.current && options?.generateThumbnail) {
       try {
         const pageEl = previewRef.current.querySelector('.magazine-page') as HTMLElement;
         if (pageEl) {
@@ -154,6 +154,11 @@ export function useProject(projectId: string | undefined, templateId: string | n
     let index = indexSaved ? JSON.parse(indexSaved) : [];
     
     const existingIdx = index.findIndex((p: any) => p.id === projectId);
+    
+    if (!thumbnail && existingIdx > -1) {
+      thumbnail = index[existingIdx].thumbnail;
+    }
+
     const projectSummary = {
       id: projectId,
       title: projectState.title,

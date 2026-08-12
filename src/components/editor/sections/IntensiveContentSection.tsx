@@ -378,7 +378,9 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
   // Merges local comments before persisting.
   const flushAnnotations = useCallback((editor: Editor) => {
     const html = editor.getHTML();
+    const htmlChanged = html !== leftContentRef.current;
     leftContentRef.current = html;
+    
     const annotations = extractAnnotationsFromDoc(
       editor.state.doc,
       pageRef.current.annotations || [],
@@ -402,7 +404,7 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
     const annotationsChanged = newHash !== lastAnnotationHashRef.current;
     lastAnnotationHashRef.current = newHash;
 
-    if (annotationsChanged || consumedLocal) {
+    if (annotationsChanged || consumedLocal || htmlChanged) {
       onUpdate({ ...pageRef.current, leftContent: html, annotations });
     }
     if (annotationsChanged) {
@@ -430,7 +432,7 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
       if (transaction?.getMeta('annotationUpdate')) return;
 
       if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
-      updateTimeoutRef.current = setTimeout(() => flushAnnotationsRef.current(editor), 800);
+      updateTimeoutRef.current = setTimeout(() => flushAnnotationsRef.current(editor), 300);
     },
   });
 

@@ -58,7 +58,7 @@ export default function EditorPage() {
   useEffect(() => {
     let timeout: NodeJS.Timeout;
     if (projectId && isLoaded) {
-      timeout = setTimeout(() => saveToDB(previewRef), 1000);
+      timeout = setTimeout(() => saveToDB(previewRef, { generateThumbnail: false }), 1000);
     }
     return () => clearTimeout(timeout);
   }, [pages, customFonts, pageSize, projectId, isLoaded, saveToDB, previewRef]);

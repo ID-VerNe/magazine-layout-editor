@@ -8,19 +8,58 @@ export const Label = ({ children, icon: Icon, className = "" }: { children: Reac
   </label>
 );
 
-export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(({ value, ...props }, ref) => (
-  <input
-    {...props}
-    value={value ?? ''}
-    ref={ref}
-    className={`w-full bg-slate-50 border-transparent focus:border-[#264376] focus:bg-white focus:ring-2 focus:ring-[#264376]/20 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 transition-all placeholder-slate-400 ${props.className || ''}`}
-  />
-));
+export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(({ value, onChange, ...props }, ref) => {
+  const [localValue, setLocalValue] = React.useState(value ?? '');
+  const timeoutRef = React.useRef<NodeJS.Timeout>();
+
+  React.useEffect(() => {
+    setLocalValue(value ?? '');
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setLocalValue(val);
+    if (onChange) {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        onChange({ target: { value: val } } as React.ChangeEvent<HTMLInputElement>);
+      }, 300);
+    }
+  };
+
+  return (
+    <input
+      {...props}
+      value={localValue}
+      onChange={handleChange}
+      ref={ref}
+      className={`w-full bg-slate-50 border-transparent focus:border-[#264376] focus:bg-white focus:ring-2 focus:ring-[#264376]/20 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 transition-all placeholder-slate-400 ${props.className || ''}`}
+    />
+  );
+});
 Input.displayName = 'Input';
 
 export const TextArea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(({ value, onChange, onFocus, onBlur, ...props }, ref) => {
   const [isFocused, setIsFocused] = useState(false);
   const internalRef = React.useRef<HTMLTextAreaElement>(null);
+  
+  const [localValue, setLocalValue] = React.useState(value ?? '');
+  const timeoutRef = React.useRef<NodeJS.Timeout>();
+
+  React.useEffect(() => {
+    setLocalValue(value ?? '');
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setLocalValue(val);
+    if (onChange) {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        onChange({ target: { value: val } } as React.ChangeEvent<HTMLTextAreaElement>);
+      }, 300);
+    }
+  };
   
   const insertFormat = (prefix: string, suffix: string) => {
     const el = internalRef.current;
@@ -35,11 +74,13 @@ export const TextArea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
 
     const newValue = `${before}${prefix}${selected}${suffix}${after}`;
     
-    const event = {
-      target: { value: newValue }
-    } as React.ChangeEvent<HTMLTextAreaElement>;
-    
-    if (onChange) onChange(event);
+    setLocalValue(newValue);
+    if (onChange) {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        onChange({ target: { value: newValue } } as React.ChangeEvent<HTMLTextAreaElement>);
+      }, 300);
+    }
 
     setTimeout(() => {
       el.focus();
@@ -71,8 +112,8 @@ export const TextArea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
       </div>
       <textarea
         {...props}
-        value={value ?? ''}
-        onChange={onChange}
+        value={localValue}
+        onChange={handleChange}
         onFocus={handleFocus}
         onBlur={handleBlur}
         ref={(node) => {
