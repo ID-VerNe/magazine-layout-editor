@@ -1,7 +1,10 @@
 import React from 'react';
+import DOMPurify from 'dompurify';
 import { PageData } from '../../types';
 import { BylineDisplay, FooterDisplay, ImageFrame } from './SharedComponents';
 import { formatMagazineText } from '../../utils/formatter';
+
+const sanitize = (html: string) => DOMPurify.sanitize(html);
 
 interface IntensiveReadingProps {
   page: PageData;
@@ -87,23 +90,23 @@ export const IntensiveReading: React.FC<IntensiveReadingProps> = ({ page, pageIn
                     lineHeight: lineHeight,
                     fontSize: `${16.5 - (balance * 0.5)}px`
                   }}
-                  dangerouslySetInnerHTML={{ __html: page.leftContent || '' }}
+                  dangerouslySetInnerHTML={{ __html: sanitize(page.leftContent || '') }}
                 />
-                
-                <div 
+
+                <div
                   className="border-l pl-10 border-neutral-200 prose max-w-none"
-                  style={{ 
+                  style={{
                     fontFamily: page.paragraphZhFont || "'Crimson Pro', serif",
                     lineHeight: lineHeight,
-                    fontSize: `${14 + (balance * 0.5)}px` 
+                    fontSize: `${14 + (balance * 0.5)}px`
                   }}
                 >
                   {(page.annotations || []).map((ann) => (
                     <div key={ann.id} className="annotation-block">
                       <div className="annotation-label">
-                        <span className="annotation-seq">[{ann.seq}]</span> <span className="annotation-word">{ann.text}</span>
+                        {!page.hideAnnotationSeq && <span className="annotation-seq">[{ann.seq}]</span>} <span className="annotation-word">{ann.text}</span>
                       </div>
-                      <div className="annotation-content" dangerouslySetInnerHTML={{ __html: ann.comment || '' }} />
+                      <div className="annotation-content" dangerouslySetInnerHTML={{ __html: sanitize(ann.comment || '') }} />
                     </div>
                   ))}
                 </div>
@@ -129,11 +132,12 @@ export const IntensiveReading: React.FC<IntensiveReadingProps> = ({ page, pageIn
        </div>
 
        <style dangerouslySetInnerHTML={{ __html: `
-         .magazine-page mark[data-annotation-id] { 
+         .magazine-page mark[data-annotation-id] {
            ${getThemeCSS(page.annotationTheme)}
            position: relative;
            color: inherit;
          }
+         ${!page.hideAnnotationSeq ? `
          .magazine-page mark[data-annotation-id]::after {
            content: "[" attr(data-seq) "]";
            vertical-align: super;
@@ -142,48 +146,7 @@ export const IntensiveReading: React.FC<IntensiveReadingProps> = ({ page, pageIn
            margin-left: 2px;
            font-weight: bold;
          }
-         
-          /* Annotation Block Styles */
-          .annotation-style-single .annotation-block {
-            display: block; /* Natural wrap */
-            margin-bottom: 0.75rem; /* Slightly larger spacing for better rhythm */
-          }
-          .annotation-style-single .annotation-block .annotation-label {
-            display: inline;
-            margin-right: 0.2rem;
-          }
-          .annotation-style-single .annotation-block .annotation-label::after {
-            content: " — ";
-            color: #94a3b8; /* Subtle separator color */
-          }
-          .annotation-style-single .annotation-block .annotation-content {
-            display: inline;
-          }
-          .annotation-style-single .annotation-block .annotation-content p {
-            display: inline;
-            margin: 0;
-          }
-          
-          /* Typography tweaks for both styles */
-          .magazine-page .annotation-block {
-            margin-bottom: 1.2rem;
-            padding-bottom: 0;
-            border-bottom: none; /* Removed harsh border */
-          }
-          .magazine-page .annotation-label {
-            font-weight: 600;
-            color: #334155; /* Slate color instead of bright green */
-            font-size: 0.85em;
-            margin-bottom: 0.25rem;
-          }
-          .magazine-page .annotation-seq {
-            color: #94a3b8;
-            font-weight: 500;
-            margin-right: 2px;
-          }
-          .magazine-page .annotation-word {
-            color: inherit;
-          }
+         ` : ''}
        `}} />
     </div>
   );

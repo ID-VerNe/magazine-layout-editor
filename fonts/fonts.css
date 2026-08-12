@@ -1,3 +1,7 @@
+/* Load Crimson Pro (italic/semibold/bold) and Noto Serif SC from Google Fonts.
+   Only these weights were missing locally; Inter and Crimson Pro Regular stay local. */
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,600;0,700;1,400&family=Noto+Serif+SC:wght@400;700;900&display=swap');
+
 @font-face {
   font-family: 'Inter';
   font-style: normal;
@@ -36,52 +40,4 @@
   font-weight: 400;
   font-display: swap;
   src: url('./crimson-pro/CrimsonPro-Regular.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Crimson Pro';
-  font-style: italic;
-  font-weight: 400;
-  font-display: swap;
-  src: url('./crimson-pro/CrimsonPro-Italic.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Crimson Pro';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('./crimson-pro/CrimsonPro-SemiBold.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Crimson Pro';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('./crimson-pro/CrimsonPro-Bold.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Noto Serif SC';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('./noto-serif-sc/NotoSerifSC-Regular.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Noto Serif SC';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('./noto-serif-sc/NotoSerifSC-Bold.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Noto Serif SC';
-  font-style: normal;
-  font-weight: 900;
-  font-display: swap;
-  src: url('./noto-serif-sc/NotoSerifSC-Black.woff2') format('woff2');
 }

@@ -86,6 +86,7 @@ export interface PageData {
   annotations?: ExternalAnnotation[];
   annotationStyle?: 'dual' | 'single';
   annotationTheme?: 'highlight' | 'underline' | 'both';
+  hideAnnotationSeq?: boolean;
 }
 
 export interface CustomFont {

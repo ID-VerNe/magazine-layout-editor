@@ -81,7 +81,7 @@ const Preview: React.FC<PreviewProps> = ({ page, pageIndex, totalPages, pageSize
 
   return (
     <div 
-      className="magazine-page relative shadow-2xl mx-auto border border-neutral-300 overflow-hidden shrink-0"
+      className="magazine-page relative shadow-2xl mx-auto border border-neutral-300 shrink-0"
       style={{
         width: '800px', 
         backgroundColor: page.backgroundColor || '#FAF9F4',

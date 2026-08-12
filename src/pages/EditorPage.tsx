@@ -80,39 +80,61 @@ export default function EditorPage() {
     if (!previewRef.current) return;
     setIsExporting(true);
     setShowExportMenu(false);
-    
+
     try {
       const prevZoom = previewZoom;
-      const prevPageIndex = currentPageIndex;
       setPreviewZoom(1);
+      // Wait for zoom change to render
       await new Promise(resolve => setTimeout(resolve, 300));
-      
-      const pagesToExport = exportAll ? pages : [pages[currentPageIndex]];
-      for (let i = 0; i < pagesToExport.length; i++) {
-        const pageIdx = exportAll ? i : prevPageIndex;
-        if (exportAll) {
-          setCurrentPageIndex(i);
-          await new Promise(resolve => setTimeout(resolve, 150));
-        }
-        const pageElements = previewRef.current.getElementsByClassName('magazine-page');
-        const targetElement = pageElements[exportAll ? i : prevPageIndex] as HTMLElement;
-        if (!targetElement) continue;
-        
-        const dataUrl = await toPng(targetElement, {
-          quality: 1,
-          pixelRatio: 2,
-          backgroundColor: pagesToExport[i].backgroundColor || '#FAF9F4',
+
+      // Show all pages in DOM for export (direct DOM manipulation bypasses React)
+      const containers = previewRef.current.querySelectorAll('.magazine-page-container');
+      const prevClasses: string[] = [];
+      if (exportAll) {
+        containers.forEach((el, idx) => {
+          prevClasses[idx] = el.className;
+          el.className = 'magazine-page-container block';
         });
-        
-        const link = document.createElement('a');
-        link.download = `magazine-page-${pageIdx + 1}.png`;
-        link.href = dataUrl;
-        link.click();
+        // Wait for AnimatePresence transition (400ms) + buffer
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      const pagesToExport = exportAll ? pages : [pages[currentPageIndex]];
+      const pageElements = previewRef.current.querySelectorAll('.magazine-page');
+
+      for (let i = 0; i < pagesToExport.length; i++) {
+        const targetElement = pageElements[exportAll ? i : currentPageIndex] as HTMLElement;
+        if (!targetElement) {
+          console.warn(`Skipping page ${i + 1}: element not found`);
+          continue;
+        }
+
+        try {
+          const dataUrl = await toPng(targetElement, {
+            quality: 1,
+            pixelRatio: 2,
+            backgroundColor: pagesToExport[i].backgroundColor || '#FAF9F4',
+          });
+
+          const link = document.createElement('a');
+          link.download = `magazine-page-${i + 1}.png`;
+          link.href = dataUrl;
+          link.click();
+        } catch (err) {
+          console.error(`Failed to export page ${i + 1}:`, err);
+          // Continue with remaining pages instead of aborting
+        }
         if (exportAll) await new Promise(resolve => setTimeout(resolve, 300));
       }
-      
+
+      // Restore visibility
+      if (exportAll) {
+        containers.forEach((el, idx) => {
+          el.className = prevClasses[idx] || 'magazine-page-container hidden';
+        });
+      }
+
       setPreviewZoom(prevZoom);
-      if (exportAll) setCurrentPageIndex(prevPageIndex);
     } catch (err) {
       console.error('Export failed:', err);
     } finally {

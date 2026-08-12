@@ -12,11 +12,98 @@
 }
 
 /* Existing number input arrow hiding */
-input[type=number]::-webkit-inner-spin-button, 
-input[type=number]::-webkit-outer-spin-button { 
-  -webkit-appearance: none; 
-  margin: 0; 
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 input[type=number] {
   -moz-appearance: textfield;
+}
+
+/* ============================================================
+   ProseMirror Editor Base Styles
+   ============================================================ */
+
+.ProseMirror {
+  outline: none;
+  min-height: 100%;
+}
+.ProseMirror p {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+.ProseMirror mark[data-annotation-id]:hover {
+  opacity: 0.8;
+}
+.ProseMirror blockquote {
+  background-color: #f1f4ec;
+  border-left: 4px solid #4a6c50;
+  border-radius: 0 4px 4px 0;
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+  color: inherit;
+}
+.ProseMirror blockquote p {
+  margin: 0;
+}
+
+/* ============================================================
+   Annotation Block Styles (Preview)
+   ============================================================ */
+
+.annotation-style-single .annotation-block {
+  display: block;
+  margin-bottom: 0.75rem;
+}
+.annotation-style-single .annotation-block .annotation-label {
+  display: inline;
+  margin-right: 0.2rem;
+}
+.annotation-style-single .annotation-block .annotation-label::after {
+  content: " — ";
+  color: #94a3b8;
+}
+.annotation-style-single .annotation-block .annotation-content {
+  display: inline;
+}
+.annotation-style-single .annotation-block .annotation-content p {
+  display: inline;
+  margin: 0;
+}
+
+.magazine-page .annotation-block {
+  margin-bottom: 1.2rem;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.magazine-page .annotation-label {
+  font-weight: 600;
+  color: #334155;
+  font-size: 0.85em;
+  margin-bottom: 0.25rem;
+}
+.magazine-page .annotation-seq {
+  color: #94a3b8;
+  font-weight: 500;
+  margin-right: 2px;
+}
+.magazine-page .annotation-word {
+  color: inherit;
+}
+
+/* ============================================================
+   Blockquote in Preview Pages
+   ============================================================ */
+
+.magazine-page blockquote {
+  background-color: #f1f4ec;
+  border-left: 4px solid #4a6c50;
+  border-radius: 0 4px 4px 0;
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+  color: inherit;
+}
+.magazine-page blockquote p {
+  margin: 0;
 }

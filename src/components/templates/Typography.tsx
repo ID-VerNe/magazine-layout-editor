@@ -30,7 +30,7 @@ export default function Typography({ page, pageIndex, totalPages }: TemplateProp
     <div className="w-full h-full flex flex-col font-sans relative overflow-hidden" style={{ backgroundColor: bgColor }}>
       <div className={`flex-1 flex flex-col p-12 justify-between ${baseTextColor}`}>
         {/* Subtle Grain/Noise Overlay */}
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]" />
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('/stardust.png')]" />
 
         {/* Top Navigation */}
         <div className={`flex justify-between items-start z-10 border-b pb-4 ${navBorderColor}`}>

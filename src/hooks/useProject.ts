@@ -171,59 +171,60 @@ export function useProject(projectId: string | undefined, templateId: string | n
     localStorage.setItem('magazine_recent_projects', JSON.stringify(index.slice(0, 12)));
   }, [pages, customFonts, pageSize, projectId, isLoaded]);
 
-  const updatePage = (updatedPage: PageData) => {
-    const originalPage = pages.find(p => p.id === updatedPage.id);
-    if (!originalPage) return;
-    
-    if (updatedPage.type !== originalPage.type) {
-      if (updatedPage.type === 'article') {
-        updatedPage.lastCoverLayoutId = originalPage.layoutId;
-        updatedPage.layoutId = updatedPage.lastArticleLayoutId || 'classic-article';
-        if (!updatedPage.paragraphs || updatedPage.paragraphs.length === 0) {
-          updatedPage.paragraphs = [{ id: `p-${Date.now()}`, en: '', zh: '' }];
-        }
-      } else {
-        updatedPage.lastArticleLayoutId = originalPage.layoutId;
-        updatedPage.layoutId = updatedPage.lastCoverLayoutId || 'classic-cover';
-      }
-    } else {
-      if (updatedPage.type === 'cover') {
-        updatedPage.lastCoverLayoutId = updatedPage.layoutId;
-      } else {
-        updatedPage.lastArticleLayoutId = updatedPage.layoutId;
-      }
-    }
-    
-    const fontFields: Array<keyof PageData> = [
-      'titleEnFont', 'titleZhFont', 'bylineFont', 'quoteEnFont', 'quoteZhFont',
-      'footerFont', 'paragraphEnFont', 'paragraphZhFont', 'footnoteFont',
-      'backgroundColor', 'accentColor', 'splitRatio', 'fontBalance',
-      'footerSwap', 'footerRightType', 'footerLogo', 'footerLogoSize', 'footerRightX', 'footerRightY',
-      'logoX', 'logoY'
-    ];
-    
-    const changedFontFields: Array<keyof PageData> = fontFields.filter(field => 
-      updatedPage[field] !== undefined && originalPage[field] !== updatedPage[field]
-    );
-    
-    if (changedFontFields.length > 0) {
-      setPages(prev => prev.map(page => {
-        const updatedPageData: PageData = { ...page };
-        if (page.id === updatedPage.id) {
-           Object.assign(updatedPageData, updatedPage);
-        }
-        changedFontFields.forEach(field => {
-          if (updatedPage[field] !== undefined) {
-            // @ts-ignore
-            updatedPageData[field] = updatedPage[field];
+  const updatePage = useCallback((updatedPageInput: PageData) => {
+    const updatedPage: PageData = { ...updatedPageInput };
+
+    setPages(prev => {
+      const originalPage = prev.find(p => p.id === updatedPage.id);
+      if (!originalPage) return prev;
+
+      if (updatedPage.type !== originalPage.type) {
+        if (updatedPage.type === 'article') {
+          updatedPage.lastCoverLayoutId = originalPage.layoutId;
+          updatedPage.layoutId = updatedPage.lastArticleLayoutId || 'classic-article';
+          if (!updatedPage.paragraphs || updatedPage.paragraphs.length === 0) {
+            updatedPage.paragraphs = [{ id: `p-${Date.now()}`, en: '', zh: '' }];
           }
-        });
-        return updatedPageData;
-      }));
-    } else {
-      setPages(prev => prev.map(p => p.id === updatedPage.id ? updatedPage : p));
-    }
-  };
+        } else {
+          updatedPage.lastArticleLayoutId = originalPage.layoutId;
+          updatedPage.layoutId = updatedPage.lastCoverLayoutId || 'classic-cover';
+        }
+      } else {
+        if (updatedPage.type === 'cover') {
+          updatedPage.lastCoverLayoutId = updatedPage.layoutId;
+        } else {
+          updatedPage.lastArticleLayoutId = updatedPage.layoutId;
+        }
+      }
+
+      const fontFields: Array<keyof PageData> = [
+        'titleEnFont', 'titleZhFont', 'bylineFont', 'quoteEnFont', 'quoteZhFont',
+        'footerFont', 'paragraphEnFont', 'paragraphZhFont', 'footnoteFont',
+        'backgroundColor', 'accentColor', 'splitRatio', 'fontBalance',
+        'footerSwap', 'footerRightType', 'footerLogo', 'footerLogoSize', 'footerRightX', 'footerRightY',
+        'logoX', 'logoY'
+      ];
+
+      const changedFontFields: Array<keyof PageData> = fontFields.filter(field =>
+        updatedPage[field] !== undefined && originalPage[field] !== updatedPage[field]
+      );
+
+      return prev.map(page => {
+        if (page.id !== updatedPage.id) return page;
+        if (changedFontFields.length > 0) {
+          const merged: PageData = { ...page, ...updatedPage };
+          changedFontFields.forEach(field => {
+            if (updatedPage[field] !== undefined) {
+              // @ts-ignore
+              merged[field] = updatedPage[field];
+            }
+          });
+          return merged;
+        }
+        return { ...page, ...updatedPage };
+      });
+    });
+  }, []);
 
   const addPage = (type: PageType) => {
     const firstPage = pages[0];
