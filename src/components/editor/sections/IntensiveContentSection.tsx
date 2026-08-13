@@ -304,7 +304,6 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
   const lastAnnotationHashRef = useRef('');
   const leftContentRef = useRef(page.leftContent || '');
   const periodicSyncRef = useRef<ReturnType<typeof setInterval>>(null);
-  const prevPageIdRef = useRef<string | null>(null);
 
   // ── Local annotations state (decoupled from global state) ──────
 
@@ -355,15 +354,6 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
   useEffect(() => {
     pageRef.current = page;
   }, [page]);
-
-  // Sync local comments to global state when switching pages.
-  useEffect(() => {
-    if (prevPageIdRef.current !== null && prevPageIdRef.current !== page.id) {
-      syncLocalComments();
-      lastAnnotationHashRef.current = '';
-    }
-    prevPageIdRef.current = page.id;
-  }, [page.id, syncLocalComments]);
 
   // Sync leftContent to global state for preview.
   const syncLeftContent = useCallback((editor: Editor) => {
@@ -439,13 +429,15 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
   // Reset editor content when switching to a different page.
   useEffect(() => {
     if (!leftEditor) return;
-    if (prevPageIdRef.current !== null && prevPageIdRef.current !== page.id) {
-      const content = pageRef.current.leftContent || '';
+    const content = page.leftContent || '<p>Start typing the main article text here...</p>';
+    if (leftEditor.getHTML() !== content) {
       leftEditor.commands.setContent(content);
-      leftContentRef.current = content;
-      lastAnnotationHashRef.current = '';
     }
-  }, [page.id, leftEditor]);
+    leftContentRef.current = content;
+    lastAnnotationHashRef.current = '';
+    localCommentsRef.current = {};
+    setRenderTick(t => t + 1);
+  }, [page.id, page.leftContent, leftEditor]);
 
   // Periodic sync: flush leftContent to global state every 5s during active editing.
   useEffect(() => {

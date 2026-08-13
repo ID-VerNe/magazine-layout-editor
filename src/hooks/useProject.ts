@@ -1,45 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useReducer, useEffect, useCallback } from 'react';
 import { PageData, CustomFont, ProjectData, PageType, PageSize } from '../types';
 import { getProject, saveProject } from '../utils/db';
 import { toPng } from 'html-to-image';
 import { useUI } from '../context/UIContext';
-
-const DEFAULT_PAGES: PageData[] = [
-  {
-    id: 'page-1',
-    type: 'cover',
-    layoutId: 'classic-cover',
-    image: 'https://picsum.photos/id/43/1200/1600',
-    titleEn: 'Example English Title',
-    titleZh: '示例中文标题',
-    byline: 'By Author Name | PUBLICATION',
-    quoteEn: 'This is an example quote text in English.',
-    quoteZh: '这是一段示例引言中文文字。',
-    featuredText: '@ExampleBadge',
-    footerLeft: 'Footer Left Label',
-    footerRight: 'Footer Right Label',
-    lineHeight: 1.6,
-    paragraphSpacing: 32,
-    backgroundColor: '#FAF9F4',
-    accentColor: '#367237',
-    splitRatio: 64,
-    fontBalance: 0,
-    footerSwap: false,
-    footerRightType: 'text',
-    footerLogoSize: 24,
-    footerRightX: 0,
-    footerRightY: 0,
-    titleEnFont: "'Inter', sans-serif",
-    titleZhFont: "'Crimson Pro', serif",
-    paragraphEnFont: "'Inter', sans-serif",
-    paragraphZhFont: "'Crimson Pro', serif",
-    bylineFont: "'Inter', sans-serif",
-    footerFont: "'Inter', sans-serif",
-    footnoteFont: "'Inter', sans-serif",
-    quoteEnFont: "'Inter', sans-serif",
-    quoteZhFont: "'Crimson Pro', serif"
-  }
-];
+import { createPageFromTemplate, getTemplateSpec } from '../state/pageFactory';
+import { createInitialProjectState, getCurrentPage, getCurrentPageIndex, projectReducer } from '../state/projectStore';
+import { assertProjectStateConsistency } from '../state/regressionChecks';
 
 export const registerFontInDOM = (family: string, dataUrl: string) => {
   if (document.getElementById(`style-${family}`)) return;
@@ -56,69 +22,83 @@ export const registerFontInDOM = (family: string, dataUrl: string) => {
 
 export function useProject(projectId: string | undefined, templateId: string | null) {
   const { alert, confirm } = useUI();
-  const [pages, setPages] = useState<PageData[]>(DEFAULT_PAGES);
-  const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
-  const [pageSize, setPageSize] = useState<PageSize>('A4');
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [state, dispatch] = useReducer(projectReducer, undefined, createInitialProjectState);
 
-  // Initial Load
+  const { pages, customFonts, pageSize, isLoaded, currentPageId } = state;
+  const currentPageIndex = getCurrentPageIndex(pages, currentPageId);
+  const currentPage = getCurrentPage(pages, currentPageId);
+
+  useEffect(() => {
+    if (!isLoaded || !import.meta.env.DEV) return;
+    try {
+      assertProjectStateConsistency(pages, currentPageId);
+    } catch (error) {
+      console.error(error);
+    }
+  }, [pages, currentPageId, isLoaded]);
+
   useEffect(() => {
     async function loadData() {
-      if (projectId) {
-        const savedData = await getProject(projectId);
-        if (savedData) {
-          const loadedFonts = savedData.customFonts || [];
-          setCustomFonts(loadedFonts);
-          setPages(savedData.pages || DEFAULT_PAGES);
-          setPageSize(savedData.settings?.pageSize || 'A4');
-          
-          loadedFonts.forEach((font: CustomFont) => {
-            if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
-          });
-        } else if (templateId) {
-          let newPages = JSON.parse(JSON.stringify(DEFAULT_PAGES));
-          const tid = templateId.toLowerCase();
-          
-          if (tid === 'classic-cover') {
-             newPages[0].layoutId = 'classic-cover';
-             newPages[0].type = 'cover';
-          } else if (tid === 'impact-bold') {
-             newPages[0].layoutId = 'impact-bold';
-             newPages[0].type = 'cover';
-          } else if (tid === 'cinematic') {
-             newPages[0].layoutId = 'cinematic';
-             newPages[0].type = 'cover';
-          } else if (tid === 'blueprint') {
-             newPages[0].layoutId = 'blueprint';
-             newPages[0].type = 'cover';
-          } else if (tid === 'tabloid') {
-             newPages[0].layoutId = 'tabloid';
-             newPages[0].type = 'cover';
-          } else if (tid === 'typography') {
-             newPages[0].layoutId = 'typography';
-             newPages[0].type = 'cover';
-          } else if (tid === 'classic-article' || tid === 'split-article') {
-             newPages[0].layoutId = 'classic-article';
-             newPages[0].type = 'article';
-             newPages[0].paragraphs = [{ id: 'p-init', en: 'Start writing...', zh: '开始写作...' }];
-          }
-          setPages(newPages);
-        }
-        setIsLoaded(true);
+      if (!projectId) return;
+      const savedData = await getProject(projectId);
+
+      if (savedData) {
+        const loadedFonts = savedData.customFonts || [];
+        loadedFonts.forEach((font: CustomFont) => {
+          if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
+        });
+
+        dispatch({
+          type: 'LOAD_PROJECT',
+          payload: {
+            pages: savedData.pages || [createPageFromTemplate({ templateId: 'classic-cover' })],
+            customFonts: loadedFonts,
+            pageSize: savedData.settings?.pageSize || 'A4',
+          },
+        });
+        return;
       }
+
+      const templateSpec = getTemplateSpec(templateId);
+      const initialPage = createPageFromTemplate({
+        templateId: templateSpec?.layoutId || templateId || 'classic-cover',
+      });
+
+      dispatch({
+        type: 'LOAD_PROJECT',
+        payload: {
+          pages: [initialPage],
+          customFonts: [],
+          pageSize: 'A4',
+        },
+      });
     }
+
     loadData();
   }, [projectId, templateId]);
 
+  const setCurrentPageId = useCallback((pageId: string) => {
+    dispatch({ type: 'SET_CURRENT_PAGE', payload: { pageId } });
+  }, []);
+
+  const setCurrentPageIndex = useCallback((index: number) => {
+    const clamped = Math.max(0, Math.min(index, pages.length - 1));
+    const target = pages[clamped];
+    if (target) {
+      dispatch({ type: 'SET_CURRENT_PAGE', payload: { pageId: target.id } });
+    }
+  }, [pages]);
+
   const updateCustomFonts = useCallback((update: CustomFont[] | ((prev: CustomFont[]) => CustomFont[])) => {
-    setCustomFonts(prev => {
-      const nextFonts = typeof update === 'function' ? update(prev) : update;
-      nextFonts.forEach(font => {
-        if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
-      });
-      return nextFonts;
+    const nextFonts = typeof update === 'function' ? update(customFonts) : update;
+    nextFonts.forEach(font => {
+      if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
     });
+    dispatch({ type: 'SET_CUSTOM_FONTS', payload: { customFonts: nextFonts } });
+  }, [customFonts]);
+
+  const setPageSize = useCallback((size: PageSize) => {
+    dispatch({ type: 'SET_PAGE_SIZE', payload: { pageSize: size } });
   }, []);
 
   const saveToDB = useCallback(async (previewRef: React.RefObject<HTMLDivElement | null>, options?: { generateThumbnail?: boolean }) => {
@@ -136,7 +116,7 @@ export function useProject(projectId: string | undefined, templateId: string | n
           });
         }
       } catch (e) {
-        console.error("Thumb failed", e);
+        console.error('Thumb failed', e);
       }
     }
 
@@ -147,14 +127,14 @@ export function useProject(projectId: string | undefined, templateId: string | n
       lastEdited: new Date().toISOString(),
       title: pages[0]?.titleEn || 'Untitled Project'
     };
-    
+
     await saveProject(projectId, projectState);
 
     const indexSaved = localStorage.getItem('magazine_recent_projects');
     let index = indexSaved ? JSON.parse(indexSaved) : [];
-    
+
     const existingIdx = index.findIndex((p: any) => p.id === projectId);
-    
+
     if (!thumbnail && existingIdx > -1) {
       thumbnail = index[existingIdx].thumbnail;
     }
@@ -172,147 +152,101 @@ export function useProject(projectId: string | undefined, templateId: string | n
     } else {
       index.unshift(projectSummary);
     }
-    
+
     localStorage.setItem('magazine_recent_projects', JSON.stringify(index.slice(0, 12)));
   }, [pages, customFonts, pageSize, projectId, isLoaded]);
 
   const updatePage = useCallback((updatedPageInput: PageData) => {
-    const updatedPage: PageData = { ...updatedPageInput };
+    dispatch({
+      type: 'UPDATE_PAGE',
+      payload: {
+        pageId: updatedPageInput.id,
+        updater: (originalPage) => {
+          const updatedPage: PageData = { ...updatedPageInput };
 
-    setPages(prev => {
-      const originalPage = prev.find(p => p.id === updatedPage.id);
-      if (!originalPage) return prev;
-
-      if (updatedPage.type !== originalPage.type) {
-        if (updatedPage.type === 'article') {
-          updatedPage.lastCoverLayoutId = originalPage.layoutId;
-          updatedPage.layoutId = updatedPage.lastArticleLayoutId || 'classic-article';
-          if (!updatedPage.paragraphs || updatedPage.paragraphs.length === 0) {
-            updatedPage.paragraphs = [{ id: `p-${Date.now()}`, en: '', zh: '' }];
+          if (updatedPage.type !== originalPage.type) {
+            if (updatedPage.type === 'article') {
+              updatedPage.lastCoverLayoutId = originalPage.layoutId;
+              updatedPage.layoutId = updatedPage.lastArticleLayoutId || 'classic-article';
+              if (!updatedPage.paragraphs || updatedPage.paragraphs.length === 0) {
+                updatedPage.paragraphs = [{ id: `p-${Date.now()}`, en: '', zh: '' }];
+              }
+            } else {
+              updatedPage.lastArticleLayoutId = originalPage.layoutId;
+              updatedPage.layoutId = updatedPage.lastCoverLayoutId || 'classic-cover';
+            }
+          } else {
+            if (updatedPage.type === 'cover') {
+              updatedPage.lastCoverLayoutId = updatedPage.layoutId;
+            } else {
+              updatedPage.lastArticleLayoutId = updatedPage.layoutId;
+            }
           }
-        } else {
-          updatedPage.lastArticleLayoutId = originalPage.layoutId;
-          updatedPage.layoutId = updatedPage.lastCoverLayoutId || 'classic-cover';
-        }
-      } else {
-        if (updatedPage.type === 'cover') {
-          updatedPage.lastCoverLayoutId = updatedPage.layoutId;
-        } else {
-          updatedPage.lastArticleLayoutId = updatedPage.layoutId;
-        }
-      }
 
-      const fontFields: Array<keyof PageData> = [
-        'titleEnFont', 'titleZhFont', 'bylineFont', 'quoteEnFont', 'quoteZhFont',
-        'footerFont', 'paragraphEnFont', 'paragraphZhFont', 'footnoteFont',
-        'backgroundColor', 'accentColor', 'splitRatio', 'fontBalance',
-        'footerSwap', 'footerRightType', 'footerLogo', 'footerLogoSize', 'footerRightX', 'footerRightY',
-        'logoX', 'logoY'
-      ];
+          const carryFields: Array<keyof PageData> = [
+            'titleEnFont', 'titleZhFont', 'bylineFont', 'quoteEnFont', 'quoteZhFont',
+            'footerFont', 'paragraphEnFont', 'paragraphZhFont', 'footnoteFont',
+            'backgroundColor', 'accentColor', 'splitRatio', 'fontBalance',
+            'footerSwap', 'footerRightType', 'footerLogo', 'footerLogoSize', 'footerRightX', 'footerRightY',
+            'logoX', 'logoY', 'annotationTheme', 'annotationStyle', 'hideAnnotationSeq',
+          ];
 
-      const changedFontFields: Array<keyof PageData> = fontFields.filter(field =>
-        updatedPage[field] !== undefined && originalPage[field] !== updatedPage[field]
-      );
-
-      return prev.map(page => {
-        if (page.id !== updatedPage.id) return page;
-        if (changedFontFields.length > 0) {
-          const merged: PageData = { ...page, ...updatedPage };
-          changedFontFields.forEach(field => {
+          const merged: PageData = { ...originalPage, ...updatedPage };
+          carryFields.forEach(field => {
             if (updatedPage[field] !== undefined) {
               // @ts-ignore
               merged[field] = updatedPage[field];
             }
           });
+
           return merged;
-        }
-        return { ...page, ...updatedPage };
-      });
+        },
+      },
     });
   }, []);
 
-  const addPage = (type: PageType) => {
-    const firstPage = pages[0];
-    const newPage: PageData = {
-      id: `page-${Date.now()}`,
-      type,
-      layoutId: type === 'cover' ? 'classic-cover' : 'classic-article',
-      image: 'https://picsum.photos/1200/1600',
-      titleEn: firstPage.titleEn,
-      titleZh: firstPage.titleZh,
-      byline: firstPage.byline,
-      footerLeft: firstPage.footerLeft,
-      footerRight: firstPage.footerRight,
-      lineHeight: firstPage.lineHeight || 1.6,
-      titleEnFont: firstPage.titleEnFont,
-      titleZhFont: firstPage.titleZhFont,
-      bylineFont: firstPage.bylineFont,
-      quoteEnFont: firstPage.quoteEnFont,
-      quoteZhFont: firstPage.quoteZhFont,
-      footerFont: firstPage.footerFont,
-      paragraphEnFont: firstPage.paragraphEnFont,
-      paragraphZhFont: firstPage.paragraphZhFont,
-      footnoteFont: firstPage.footnoteFont,
-      paragraphs: type === 'article' ? [{ id: `p-${Date.now()}`, en: 'New paragraph text in English.', zh: '新的中文段落文字。' }] : undefined,
-    };
-    setPages(prev => [...prev, newPage]);
-    setCurrentPageIndex(pages.length);
-  };
+  const addPage = useCallback((type: PageType) => {
+    dispatch({
+      type: 'ADD_PAGE',
+      payload: {
+        type,
+        sourcePageId: currentPageId,
+      },
+    });
+  }, [currentPageId]);
 
-  const removePage = (id: string) => {
+  const removePage = useCallback((id: string) => {
     if (pages.length <= 1) {
-      handleClearAll();
+      confirm(
+        'Reset Project',
+        'Are you sure you want to clear all pages?',
+        () => dispatch({ type: 'CLEAR_ALL' }),
+      );
       return;
     }
-    
+
     confirm(
-      "Delete Page",
-      "Are you sure you want to delete this page?",
+      'Delete Page',
+      'Are you sure you want to delete this page?',
       () => {
-        setPages(prev => prev.filter(p => p.id !== id));
-        setCurrentPageIndex(Math.max(0, currentPageIndex - 1));
+        dispatch({ type: 'REMOVE_PAGE', payload: { pageId: id } });
       }
     );
-  };
+  }, [pages.length, confirm]);
 
-  const handleClearAll = () => {
+  const handleClearAll = useCallback(() => {
     confirm(
-      "Reset Project",
-      "Are you sure you want to clear all pages?",
-      () => {
-        setPages([
-          {
-            id: `page-${Date.now()}`,
-            type: 'cover',
-            layoutId: 'classic-cover',
-            image: '',
-            titleEn: 'Untitled Project',
-            titleZh: '未命名项目',
-            byline: 'Author Name',
-            footerLeft: 'Footer L',
-            footerRight: 'Footer R',
-            lineHeight: 1.6,
-            backgroundColor: '#FAF9F4',
-            accentColor: '#367237',
-            splitRatio: 64,
-            fontBalance: 0,
-            titleEnFont: "'Inter', sans-serif",
-            titleZhFont: "'Crimson Pro', serif",
-            bylineFont: "'Inter', sans-serif",
-            footerFont: "'Inter', sans-serif"
-          }
-        ]);
-        setPageSize('A4');
-        setCurrentPageIndex(0);
-      }
+      'Reset Project',
+      'Are you sure you want to clear all pages?',
+      () => dispatch({ type: 'CLEAR_ALL' }),
     );
-  };
+  }, [confirm]);
 
-  const handleExportProject = () => {
+  const handleExportProject = useCallback(() => {
     setTimeout(() => {
       try {
         const project: ProjectData = {
-          version: "1.0",
+          version: '1.0',
           pages,
           customFonts,
           settings: { pageSize }
@@ -328,39 +262,57 @@ export function useProject(projectId: string | undefined, templateId: string | n
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       } catch (e) {
-        console.error("Export failed", e);
-        alert("导出失败", "打包项目数据时出错。");
+        console.error('Export failed', e);
+        alert('导出失败', '打包项目数据时出错。');
       }
     }, 100);
-  };
+  }, [pages, customFonts, pageSize, alert]);
 
-  const handleImportProject = (file: File) => {
+  const handleImportProject = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const project: ProjectData = JSON.parse(event.target?.result as string);
-        project.customFonts.forEach(font => {
+        (project.customFonts || []).forEach(font => {
           if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
         });
-        setCustomFonts(project.customFonts || []);
-        setPages(project.pages || DEFAULT_PAGES);
-        setPageSize(project.settings?.pageSize || 'A4');
-        setCurrentPageIndex(0);
-        alert("导入成功", "项目数据及自定义字体已全部加载。");
+
+        dispatch({
+          type: 'LOAD_PROJECT',
+          payload: {
+            pages: project.pages || [createPageFromTemplate({ templateId: 'classic-cover' })],
+            customFonts: project.customFonts || [],
+            pageSize: project.settings?.pageSize || 'A4',
+          },
+        });
+
+        alert('导入成功', '项目数据及自定义字体已全部加载。');
       } catch (err) {
-        console.error("Import failed:", err);
-        alert("导入失败", "文件格式无效或已损坏。");
+        console.error('Import failed:', err);
+        alert('导入失败', '文件格式无效或已损坏。');
       }
     };
     reader.readAsText(file);
-  };
+  }, [alert]);
 
   return {
     pages,
-    setPages,
+    setPages: (next: PageData[] | ((prev: PageData[]) => PageData[])) => {
+      const resolved = typeof next === 'function' ? next(pages) : next;
+      dispatch({
+        type: 'LOAD_PROJECT',
+        payload: {
+          pages: resolved,
+          customFonts,
+          pageSize,
+        },
+      });
+    },
+    currentPageId,
+    setCurrentPageId,
     currentPageIndex,
     setCurrentPageIndex,
-    currentPage: pages[currentPageIndex],
+    currentPage,
     customFonts,
     setCustomFonts: updateCustomFonts,
     pageSize,
@@ -372,6 +324,6 @@ export function useProject(projectId: string | undefined, templateId: string | n
     handleClearAll,
     handleExportProject,
     handleImportProject,
-    saveToDB
+    saveToDB,
   };
 }
