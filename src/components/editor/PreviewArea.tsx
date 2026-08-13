@@ -31,6 +31,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
         {pages.map((page, idx) => (
           <div 
             key={page.id} 
+            data-page-id={page.id}
             className={`magazine-page-container ${idx === currentPageIndex ? 'block' : 'hidden'} shadow-2xl shadow-slate-300/50`}
           >
             <Preview 

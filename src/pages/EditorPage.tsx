@@ -10,6 +10,7 @@ import TopNav from '../components/editor/TopNav';
 import PreviewArea from '../components/editor/PreviewArea';
 import EditorPanel from '../components/editor/EditorPanel';
 import FontManager from '../components/FontManager';
+import { checkExportPageName } from '../state/regressionChecks';
 
 export default function EditorPage() {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ export default function EditorPage() {
 
   const {
     pages,
+    currentPageId,
     currentPageIndex,
     setCurrentPageIndex,
     currentPage,
@@ -87,52 +89,59 @@ export default function EditorPage() {
       // Wait for zoom change to render
       await new Promise(resolve => setTimeout(resolve, 300));
 
-      // Show all pages in DOM for export (direct DOM manipulation bypasses React)
-      const containers = previewRef.current.querySelectorAll('.magazine-page-container');
-      const prevClasses: string[] = [];
-      if (exportAll) {
-        containers.forEach((el, idx) => {
-          prevClasses[idx] = el.className;
-          el.className = 'magazine-page-container block';
-        });
-        // Wait for AnimatePresence transition (400ms) + buffer
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
+      const pageIdsToExport = exportAll ? pages.map(page => page.id) : (currentPageId ? [currentPageId] : []);
+      const pagePositions = new Map(pages.map((page, index) => [page.id, index + 1]));
+      const containers = pageIdsToExport.map((pageId) =>
+        previewRef.current?.querySelector(`.magazine-page-container[data-page-id="${pageId}"]`) as HTMLElement | null
+      );
+      const previousDisplay = new Map<HTMLElement, string>();
 
-      const pagesToExport = exportAll ? pages : [pages[currentPageIndex]];
-      const pageElements = previewRef.current.querySelectorAll('.magazine-page');
+      containers.forEach(container => {
+        if (container) {
+          previousDisplay.set(container, container.style.display);
+          container.style.display = 'block';
+        }
+      });
 
-      for (let i = 0; i < pagesToExport.length; i++) {
-        const targetElement = pageElements[exportAll ? i : currentPageIndex] as HTMLElement;
+      await new Promise(resolve => setTimeout(resolve, 250));
+
+      for (let i = 0; i < pageIdsToExport.length; i++) {
+        const pageId = pageIdsToExport[i];
+        const container = containers[i];
+        const targetElement = container?.querySelector('.magazine-page') as HTMLElement;
         if (!targetElement) {
-          console.warn(`Skipping page ${i + 1}: element not found`);
+          console.warn(`Skipping page export: element not found for ${pageId}`);
           continue;
         }
+        const sourcePage = pages.find(page => page.id === pageId);
+        const pageNumber = pagePositions.get(pageId) || i + 1;
 
         try {
           const dataUrl = await toPng(targetElement, {
             quality: 1,
             pixelRatio: 2,
-            backgroundColor: pagesToExport[i].backgroundColor || '#FAF9F4',
+            backgroundColor: sourcePage?.backgroundColor || '#FAF9F4',
           });
 
           const link = document.createElement('a');
-          link.download = `magazine-page-${i + 1}.png`;
+          link.download = `magazine-page-${pageNumber}.png`;
+          if (import.meta.env.DEV && !checkExportPageName(pageNumber, link.download)) {
+            console.warn('[export-check] unexpected export filename', { pageId, pageNumber, file: link.download });
+          }
           link.href = dataUrl;
           link.click();
         } catch (err) {
-          console.error(`Failed to export page ${i + 1}:`, err);
+          console.error(`Failed to export page ${pageNumber}:`, err);
           // Continue with remaining pages instead of aborting
         }
-        if (exportAll) await new Promise(resolve => setTimeout(resolve, 300));
+        if (exportAll) await new Promise(resolve => setTimeout(resolve, 120));
       }
 
-      // Restore visibility
-      if (exportAll) {
-        containers.forEach((el, idx) => {
-          el.className = prevClasses[idx] || 'magazine-page-container hidden';
-        });
-      }
+      containers.forEach(container => {
+        if (container) {
+          container.style.display = previousDisplay.get(container) || '';
+        }
+      });
 
       setPreviewZoom(prevZoom);
     } catch (err) {

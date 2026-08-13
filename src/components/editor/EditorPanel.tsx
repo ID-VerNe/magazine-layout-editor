@@ -59,6 +59,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
         </div>
 
         <Editor 
+          key={currentPage.id}
           page={currentPage} 
           onUpdate={onUpdatePage} 
           customFonts={customFonts} 
