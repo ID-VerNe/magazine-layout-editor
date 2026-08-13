@@ -169,11 +169,13 @@ const CommentEditor = memo(({
   onUpdate,
   onRemove,
   hideSeq,
+  customFonts,
 }: {
   annotation: ExternalAnnotation;
   onUpdate: (id: string, html: string) => void;
   onRemove: (id: string) => void;
   hideSeq?: boolean;
+  customFonts: CustomFont[];
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
@@ -239,6 +241,31 @@ const CommentEditor = memo(({
     handleInput();
   }, [handleInput]);
 
+  // Apply an inline style (font-size / font-family) to the current selection by
+  // wrapping it in a styled <span> — the contentEditable equivalent of textStyle.
+  const applyStyle = useCallback((prop: 'fontSize' | 'fontFamily', value: string) => {
+    const el = editorRef.current;
+    if (!el) return;
+    el.focus();
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+
+    const range = sel.getRangeAt(0);
+    const span = document.createElement('span');
+    span.style[prop] = value;
+    try {
+      range.surroundContents(span);
+    } catch {
+      const frag = range.extractContents();
+      span.appendChild(frag);
+      range.insertNode(span);
+    }
+    sel.removeAllRanges();
+    sel.addRange(range);
+    el.focus();
+    handleInput();
+  }, [handleInput]);
+
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden bg-white mb-3 shadow-sm">
       <div className="bg-slate-50 text-xs font-bold text-[#367237] p-2 border-b flex justify-between items-center">
@@ -258,6 +285,34 @@ const CommentEditor = memo(({
           >
             <Italic size={12} />
           </button>
+          <select
+            defaultValue=""
+            onChange={(e) => { const v = e.target.value; if (v) applyStyle('fontSize', v); e.target.value = ''; }}
+            className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-white text-slate-500 focus:outline-none cursor-pointer"
+            title="Font size"
+          >
+            <option value="" disabled>Size</option>
+            <option value="12px">12</option>
+            <option value="14px">14</option>
+            <option value="16px">16</option>
+            <option value="18px">18</option>
+            <option value="20px">20</option>
+            <option value="24px">24</option>
+          </select>
+          <select
+            defaultValue=""
+            onChange={(e) => { const v = e.target.value; if (v) applyStyle('fontFamily', v); e.target.value = ''; }}
+            className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-white text-slate-500 focus:outline-none cursor-pointer max-w-[110px]"
+            title="Font family"
+          >
+            <option value="" disabled>Font</option>
+            <option value="'Inter', sans-serif">Inter</option>
+            <option value="'Crimson Pro', serif">Crimson Pro</option>
+            <option value="'Noto Serif SC', serif">Noto Serif SC</option>
+            {customFonts.map(f => (
+              <option key={f.family} value={f.family}>{f.name}</option>
+            ))}
+          </select>
           <div className="w-px h-3 bg-slate-300 mx-0.5" />
           <button
             onClick={() => onRemove(annotation.id)}
@@ -285,6 +340,7 @@ const CommentEditor = memo(({
     && prev.annotation.comment === next.annotation.comment
     && prev.annotation.text === next.annotation.text
     && prev.hideSeq === next.hideSeq
+    && prev.customFonts === next.customFonts
     && prev.onUpdate === next.onUpdate
     && prev.onRemove === next.onRemove;
 });
@@ -695,7 +751,7 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
                  <div className="text-sm text-slate-400 italic text-center mt-10">Select a word in the main article to add a comment...</div>
                ) : (
                  activeAnnotations.map(ann => (
-                   <CommentEditor key={ann.id} annotation={ann} onUpdate={updateComment} onRemove={handleRemoveAnnotation} hideSeq={page.hideAnnotationSeq} />
+                   <CommentEditor key={ann.id} annotation={ann} onUpdate={updateComment} onRemove={handleRemoveAnnotation} hideSeq={page.hideAnnotationSeq} customFonts={customFonts} />
                  ))
                )}
              </div>
