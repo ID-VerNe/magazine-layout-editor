@@ -20,6 +20,7 @@ interface ExternalAnnotation {
   from: number;
   to: number;
   comment?: string;
+  fontSize?: string;
 }
 
 // Fast word boundary detection using Set (O(1) lookup vs O(n) regex)
@@ -50,6 +51,7 @@ function extractAnnotationsFromDoc(doc: any, existingAnnotations: ExternalAnnota
           text: node.text || '',
           from: pos, to: pos + node.nodeSize,
           comment: oldAnn?.comment,
+          fontSize: mark.attrs.fontSize,
         });
         map.set(id, extracted[extracted.length - 1]);
       }
@@ -170,12 +172,14 @@ const CommentEditor = memo(({
   onRemove,
   hideSeq,
   customFonts,
+  onSetAnnotationFontSize,
 }: {
   annotation: ExternalAnnotation;
   onUpdate: (id: string, html: string) => void;
   onRemove: (id: string) => void;
   hideSeq?: boolean;
   customFonts: CustomFont[];
+  onSetAnnotationFontSize: (id: string, size: string) => void;
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
@@ -271,6 +275,21 @@ const CommentEditor = memo(({
       <div className="bg-slate-50 text-xs font-bold text-[#367237] p-2 border-b flex justify-between items-center">
         <span>{!hideSeq && `[${annotation.seq}] `}{annotation.text}</span>
         <div className="flex items-center gap-1">
+          <select
+            value={annotation.fontSize || ''}
+            onChange={(e) => onSetAnnotationFontSize(annotation.id, e.target.value)}
+            className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-amber-50 text-slate-500 focus:outline-none cursor-pointer"
+            title="标注文本字号（左侧下划线文字）"
+          >
+            <option value="">注字</option>
+            <option value="12px">12</option>
+            <option value="14px">14</option>
+            <option value="16px">16</option>
+            <option value="18px">18</option>
+            <option value="20px">20</option>
+            <option value="24px">24</option>
+          </select>
+          <div className="w-px h-3 bg-slate-300 mx-0.5" />
           <button
             onMouseDown={(e) => { e.preventDefault(); toggleMark('b'); }}
             className="p-1 rounded hover:bg-slate-200 text-slate-500"
@@ -339,8 +358,10 @@ const CommentEditor = memo(({
     && prev.annotation.seq === next.annotation.seq
     && prev.annotation.comment === next.annotation.comment
     && prev.annotation.text === next.annotation.text
+    && prev.annotation.fontSize === next.annotation.fontSize
     && prev.hideSeq === next.hideSeq
     && prev.customFonts === next.customFonts
+    && prev.onSetAnnotationFontSize === next.onSetAnnotationFontSize
     && prev.onUpdate === next.onUpdate
     && prev.onRemove === next.onRemove;
 });
@@ -519,6 +540,12 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
     const id = `anchor-${Math.random().toString(36).substring(2, 9)}-${Date.now()}`;
     const currentCount = (pageRef.current.annotations || []).length;
     leftEditor.chain().focus().setAnnotation(id, currentCount + 1).run();
+  }, [leftEditor]);
+
+  // 设置标注文本（左侧下划线 <mark>）的字号，与注释内容字号分开控制。
+  const handleSetAnnotationFontSize = useCallback((id: string, size: string) => {
+    if (!leftEditor) return;
+    leftEditor.chain().setAnnotationFontSize(id, size).run();
   }, [leftEditor]);
 
   useEffect(() => {
@@ -751,7 +778,7 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
                  <div className="text-sm text-slate-400 italic text-center mt-10">Select a word in the main article to add a comment...</div>
                ) : (
                  activeAnnotations.map(ann => (
-                   <CommentEditor key={ann.id} annotation={ann} onUpdate={updateComment} onRemove={handleRemoveAnnotation} hideSeq={page.hideAnnotationSeq} customFonts={customFonts} />
+                   <CommentEditor key={ann.id} annotation={ann} onUpdate={updateComment} onRemove={handleRemoveAnnotation} hideSeq={page.hideAnnotationSeq} customFonts={customFonts} onSetAnnotationFontSize={handleSetAnnotationFontSize} />
                  ))
                )}
              </div>
