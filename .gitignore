@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.trae-html-share-packages/
 
 # Editor directories and files
 .vscode/*
