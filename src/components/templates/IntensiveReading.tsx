@@ -104,7 +104,7 @@ export const IntensiveReading: React.FC<IntensiveReadingProps> = ({ page, pageIn
                   {(page.annotations || []).map((ann) => (
                     <div key={ann.id} className="annotation-block">
                       <div className="annotation-label">
-                        {!page.hideAnnotationSeq && <span className="annotation-seq">[{ann.seq}]</span>} <span className="annotation-word">{ann.text}</span>
+                        {!page.hideAnnotationSeq && <span className="annotation-seq">[{ann.seq}]</span>} <span className="annotation-word" style={ann.fontSize ? { fontSize: ann.fontSize } : undefined}>{ann.text}</span>
                       </div>
                       <div className="annotation-content" dangerouslySetInnerHTML={{ __html: sanitize(ann.comment || '') }} />
                     </div>

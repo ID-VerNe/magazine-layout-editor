@@ -10,7 +10,6 @@ declare module '@tiptap/core' {
     annotationMark: {
       setAnnotation: (id: string, seq: number) => ReturnType;
       unsetAnnotation: (id: string) => ReturnType;
-      setAnnotationFontSize: (id: string, fontSize: string) => ReturnType;
     };
   }
 }
@@ -56,14 +55,6 @@ export const AnnotationMark = Mark.create<AnnotationMarkOptions>({
           return { 'data-seq': attributes.seq };
         },
       },
-      fontSize: {
-        default: null,
-        parseHTML: element => element.style.fontSize,
-        renderHTML: attributes => {
-          if (!attributes.fontSize) return {};
-          return { style: `font-size: ${attributes.fontSize}` };
-        },
-      },
     };
   },
 
@@ -104,23 +95,6 @@ export const AnnotationMark = Mark.create<AnnotationMarkOptions>({
 
         if (startPos !== -1 && endPos !== -1 && dispatch) {
           tr.removeMark(startPos, endPos, state.schema.marks[this.name]);
-          dispatch(tr);
-          return true;
-        }
-        return false;
-      },
-      setAnnotationFontSize: (id: string, fontSize: string) => ({ tr, state, dispatch }) => {
-        const markType = state.schema.marks[this.name];
-        let changed = false;
-        state.doc.descendants((node, pos) => {
-          const mark = node.marks.find(m => m.type.name === this.name && m.attrs.id === id);
-          if (mark) {
-            const newMark = markType.create({ ...mark.attrs, fontSize });
-            tr.addMark(pos, pos + node.nodeSize, newMark);
-            changed = true;
-          }
-        });
-        if (changed && dispatch) {
           dispatch(tr);
           return true;
         }

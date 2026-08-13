@@ -51,7 +51,7 @@ function extractAnnotationsFromDoc(doc: any, existingAnnotations: ExternalAnnota
           text: node.text || '',
           from: pos, to: pos + node.nodeSize,
           comment: oldAnn?.comment,
-          fontSize: mark.attrs.fontSize,
+          fontSize: oldAnn?.fontSize,
         });
         map.set(id, extracted[extracted.length - 1]);
       }
@@ -279,7 +279,7 @@ const CommentEditor = memo(({
             value={annotation.fontSize || ''}
             onChange={(e) => onSetAnnotationFontSize(annotation.id, e.target.value)}
             className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-amber-50 text-slate-500 focus:outline-none cursor-pointer"
-            title="标注文本字号（左侧下划线文字）"
+            title="标注本体字号（右侧批注区显示的标注文字）"
           >
             <option value="">注字</option>
             <option value="12px">12</option>
@@ -542,11 +542,12 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
     leftEditor.chain().focus().setAnnotation(id, currentCount + 1).run();
   }, [leftEditor]);
 
-  // 设置标注文本（左侧下划线 <mark>）的字号，与注释内容字号分开控制。
+  // 设置右侧批注区"标注本体"（.annotation-word）的字号，与注释内容字号分开控制。
   const handleSetAnnotationFontSize = useCallback((id: string, size: string) => {
-    if (!leftEditor) return;
-    leftEditor.chain().setAnnotationFontSize(id, size).run();
-  }, [leftEditor]);
+    const base = pageRef.current;
+    const annotations = (base.annotations || []).map(a => a.id === id ? { ...a, fontSize: size } : a);
+    onUpdate({ ...base, annotations });
+  }, [onUpdate]);
 
   useEffect(() => {
     if (leftEditor) {
