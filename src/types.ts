@@ -8,6 +8,7 @@ export interface ExternalAnnotation {
   from: number;
   to: number;
   comment?: string;
+  fontSize?: string;
 }
 
 export interface Paragraph {
