@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { PageData, PageSize } from '../types';
+import { PageData, PageSize, TemplateProps } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import ClassicCover from './templates/ClassicCover';
 import ClassicArticle from './templates/ClassicArticle';
@@ -19,6 +19,19 @@ interface PreviewProps {
   pageSize?: PageSize;
   onOverflowChange?: (isOverflowing: boolean) => void;
 }
+
+const TEMPLATE_COMPONENTS: Record<string, React.ComponentType<TemplateProps>> = {
+  'classic-cover': ClassicCover,
+  'classic-article': ClassicArticle,
+  'modern-vertical': ModernVertical,
+  'blueprint-article': BlueprintArticle,
+  'impact-bold': ImpactBold,
+  'cinematic': Cinematic,
+  'blueprint': Blueprint,
+  'tabloid': Tabloid,
+  'typography': Typography,
+  'intensive-reading': IntensiveReading,
+};
 
 const Preview: React.FC<PreviewProps> = ({ page, pageIndex, totalPages, pageSize = 'A4', onOverflowChange }) => {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -40,14 +53,11 @@ const Preview: React.FC<PreviewProps> = ({ page, pageIndex, totalPages, pageSize
       const element = contentRef.current;
       if (!element) return;
 
-      // 尝试寻找内部的内容容器进行精准限位判断
       const contentContainer = element.querySelector('.magazine-content-container') as HTMLElement;
       if (contentContainer) {
-        // 如果内部容器的滚动高度大于其可见高度，说明内容已经溢出并触碰到了固定的页脚
         const isOverflowing = contentContainer.scrollHeight > contentContainer.offsetHeight + 2;
         onOverflowChange(isOverflowing);
       } else {
-        // 回退逻辑
         const isOverflowing = element.scrollHeight > element.offsetHeight + 2;
         onOverflowChange(isOverflowing);
       }
@@ -63,20 +73,9 @@ const Preview: React.FC<PreviewProps> = ({ page, pageIndex, totalPages, pageSize
   }, [page, isFixed, pageSize, onOverflowChange]);
 
   const renderTemplate = () => {
-    const props = { page, pageIndex, totalPages };
-    const templates: Record<string, React.ReactNode> = {
-      'classic-cover': <ClassicCover {...props} />,
-      'classic-article': <ClassicArticle {...props} />,
-      'modern-vertical': <ModernVertical {...props} />,
-      'blueprint-article': <BlueprintArticle {...props} />,
-      'impact-bold': <ImpactBold {...props} />,
-      'cinematic': <Cinematic {...props} />,
-      'blueprint': <Blueprint {...props} />,
-      'tabloid': <Tabloid {...props} />,
-      'typography': <Typography {...props} />,
-      'intensive-reading': <IntensiveReading {...props} />,
-    };
-    return templates[page.layoutId || ''] || (page.type === 'cover' ? templates['classic-cover'] : templates['classic-article']);
+    const layoutKey = page.layoutId || (page.type === 'cover' ? 'classic-cover' : 'classic-article');
+    const Component = TEMPLATE_COMPONENTS[layoutKey] || (page.type === 'cover' ? ClassicCover : ClassicArticle);
+    return <Component page={page} pageIndex={pageIndex} totalPages={totalPages} />;
   };
 
   return (
@@ -113,5 +112,6 @@ export default React.memo(Preview, (prevProps, nextProps) => {
   return prevProps.page === nextProps.page &&
          prevProps.pageIndex === nextProps.pageIndex &&
          prevProps.totalPages === nextProps.totalPages &&
-         prevProps.pageSize === nextProps.pageSize;
+         prevProps.pageSize === nextProps.pageSize &&
+         prevProps.onOverflowChange === nextProps.onOverflowChange;
 });

@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { toPng } from 'html-to-image';
 
 import { useProject } from '../hooks/useProject';
 import { usePreview } from '../hooks/usePreview';
@@ -10,7 +9,7 @@ import TopNav from '../components/editor/TopNav';
 import PreviewArea from '../components/editor/PreviewArea';
 import EditorPanel from '../components/editor/EditorPanel';
 import FontManager from '../components/FontManager';
-import { checkExportPageName } from '../state/regressionChecks';
+import { exportPagesAsPng } from '../utils/exportUtils';
 
 export default function EditorPage() {
   const navigate = useNavigate();
@@ -35,7 +34,7 @@ export default function EditorPage() {
     handleClearAll,
     handleExportProject,
     handleImportProject,
-    saveToDB
+    saveToDB,
   } = useProject(projectId, templateId);
 
   const {
@@ -47,7 +46,7 @@ export default function EditorPage() {
     previewContainerRef,
     handleManualZoom,
     toggleFit,
-    handleOverflowChange
+    handleOverflowChange,
   } = usePreview({ pageSize, pages, currentPageIndex });
 
   const [isExporting, setIsExporting] = useState(false);
@@ -55,15 +54,32 @@ export default function EditorPage() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const saveToDBRef = useRef(saveToDB);
+  saveToDBRef.current = saveToDB;
 
-  // Auto-save logic
+  // Auto-save logic with flush on unmount to prevent data loss when navigating away
   useEffect(() => {
-    let timeout: NodeJS.Timeout;
+    let timeout: NodeJS.Timeout | null = null;
+    let pendingSave = false;
+
     if (projectId && isLoaded) {
-      timeout = setTimeout(() => saveToDB(previewRef, { generateThumbnail: false }), 1000);
+      pendingSave = true;
+      timeout = setTimeout(() => {
+        pendingSave = false;
+        saveToDBRef.current(previewRef, { generateThumbnail: false });
+      }, 1000);
     }
-    return () => clearTimeout(timeout);
-  }, [pages, customFonts, pageSize, projectId, isLoaded, saveToDB, previewRef]);
+
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      if (pendingSave && projectId && isLoaded) {
+        // Flush pending save immediately on unmount/route change
+        saveToDBRef.current(previewRef, { generateThumbnail: false });
+      }
+    };
+  }, [pages, customFonts, pageSize, projectId, isLoaded, previewRef]);
 
   // Outside click for export menu
   useEffect(() => {
@@ -78,72 +94,18 @@ export default function EditorPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showExportMenu]);
 
-  const exportAsPng = async (exportAll: boolean = false) => {
-    if (!previewRef.current) return;
+  const handleExportPng = async (exportAll: boolean = false) => {
     setIsExporting(true);
     setShowExportMenu(false);
-
     try {
-      const prevZoom = previewZoom;
-      setPreviewZoom(1);
-      // Wait for zoom change to render
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      const pageIdsToExport = exportAll ? pages.map(page => page.id) : (currentPageId ? [currentPageId] : []);
-      const pagePositions = new Map(pages.map((page, index) => [page.id, index + 1]));
-      const containers = pageIdsToExport.map((pageId) =>
-        previewRef.current?.querySelector(`.magazine-page-container[data-page-id="${pageId}"]`) as HTMLElement | null
-      );
-      const previousDisplay = new Map<HTMLElement, string>();
-
-      containers.forEach(container => {
-        if (container) {
-          previousDisplay.set(container, container.style.display);
-          container.style.display = 'block';
-        }
+      await exportPagesAsPng({
+        exportAll,
+        pages,
+        currentPageId,
+        previewRef,
+        previewZoom,
+        setPreviewZoom,
       });
-
-      await new Promise(resolve => setTimeout(resolve, 250));
-
-      for (let i = 0; i < pageIdsToExport.length; i++) {
-        const pageId = pageIdsToExport[i];
-        const container = containers[i];
-        const targetElement = container?.querySelector('.magazine-page') as HTMLElement;
-        if (!targetElement) {
-          console.warn(`Skipping page export: element not found for ${pageId}`);
-          continue;
-        }
-        const sourcePage = pages.find(page => page.id === pageId);
-        const pageNumber = pagePositions.get(pageId) || i + 1;
-
-        try {
-          const dataUrl = await toPng(targetElement, {
-            quality: 1,
-            pixelRatio: 2,
-            backgroundColor: sourcePage?.backgroundColor || '#FAF9F4',
-          });
-
-          const link = document.createElement('a');
-          link.download = `magazine-page-${pageNumber}.png`;
-          if (import.meta.env.DEV && !checkExportPageName(pageNumber, link.download)) {
-            console.warn('[export-check] unexpected export filename', { pageId, pageNumber, file: link.download });
-          }
-          link.href = dataUrl;
-          link.click();
-        } catch (err) {
-          console.error(`Failed to export page ${pageNumber}:`, err);
-          // Continue with remaining pages instead of aborting
-        }
-        if (exportAll) await new Promise(resolve => setTimeout(resolve, 120));
-      }
-
-      containers.forEach(container => {
-        if (container) {
-          container.style.display = previousDisplay.get(container) || '';
-        }
-      });
-
-      setPreviewZoom(prevZoom);
     } catch (err) {
       console.error('Export failed:', err);
     } finally {
@@ -194,7 +156,7 @@ export default function EditorPage() {
             onZoomChange={handleManualZoom}
             isAutoFit={isAutoFit}
             onToggleAutoFit={toggleFit}
-            onExportPng={exportAsPng}
+            onExportPng={handleExportPng}
             isExporting={isExporting}
             showExportMenu={showExportMenu}
             setShowExportMenu={setShowExportMenu}

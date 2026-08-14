@@ -5,8 +5,12 @@ const DB_NAME = 'MagaEditorDB';
 const STORE_NAME = 'projects';
 const DB_VERSION = 3;
 
+let dbPromise: Promise<IDBDatabase> | null = null;
+
 export const openDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
+  if (dbPromise) return dbPromise;
+
+  dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -15,8 +19,13 @@ export const openDB = (): Promise<IDBDatabase> => {
       }
     };
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onerror = () => {
+      dbPromise = null;
+      reject(request.error);
+    };
   });
+
+  return dbPromise;
 };
 
 export const saveProject = async (id: string, data: any) => {

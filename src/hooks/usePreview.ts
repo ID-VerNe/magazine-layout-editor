@@ -7,7 +7,7 @@ interface UsePreviewOptions {
   currentPageIndex: number;
 }
 
-export function usePreview({ pageSize, pages, currentPageIndex }: UsePreviewOptions) {
+export function usePreview({ pageSize, currentPageIndex }: UsePreviewOptions) {
   const [previewZoom, setPreviewZoom] = useState(0.8);
   const [isAutoFit, setIsAutoFit] = useState(true);
   const [pagesOverflow, setPagesOverflow] = useState<Record<string, boolean>>({});
@@ -35,7 +35,7 @@ export function usePreview({ pageSize, pages, currentPageIndex }: UsePreviewOpti
 
     const availableHeight = containerHeight - padding;
     return Math.min(Math.max(0.1, availableHeight / targetHeight), 1.5);
-  }, [pageSize, pages, currentPageIndex]);
+  }, []);
 
   useEffect(() => {
     if (!previewContainerRef.current) return;
@@ -60,11 +60,12 @@ export function usePreview({ pageSize, pages, currentPageIndex }: UsePreviewOpti
     };
   }, [isAutoFit, calculateFitZoom]);
 
+  // Recalculate fit zoom on page/size change, excluding pages array to avoid running on every keystroke
   useEffect(() => {
     if (isAutoFit) {
       setPreviewZoom(calculateFitZoom());
     }
-  }, [currentPageIndex, pageSize, isAutoFit, calculateFitZoom, pages]);
+  }, [currentPageIndex, pageSize, isAutoFit, calculateFitZoom]);
 
   const handleManualZoom = (value: number) => {
     setIsAutoFit(false);

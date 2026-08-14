@@ -1,4 +1,9 @@
 import { PageData, PageType } from '../types';
+import {
+  DEFAULT_COVER_TEMPLATE_ID,
+  DEFAULT_ARTICLE_TEMPLATE_ID,
+  getTemplateById,
+} from '../config/templates';
 
 const nowId = () => `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -33,7 +38,7 @@ const basePageDefaults = (): Omit<PageData, 'id' | 'type' | 'layoutId'> => ({
 
 const coverDefaults = (): Partial<PageData> => ({
   type: 'cover',
-  layoutId: 'classic-cover',
+  layoutId: DEFAULT_COVER_TEMPLATE_ID,
   quoteEn: 'This is an example quote text in English.',
   quoteZh: '这是一段示例引言中文文字。',
   featuredText: '@ExampleBadge',
@@ -41,23 +46,9 @@ const coverDefaults = (): Partial<PageData> => ({
 
 const articleDefaults = (): Partial<PageData> => ({
   type: 'article',
-  layoutId: 'classic-article',
+  layoutId: DEFAULT_ARTICLE_TEMPLATE_ID,
   paragraphs: [{ id: `p-${Date.now()}`, en: 'Start writing...', zh: '开始写作...' }],
 });
-
-const templateLayoutMap: Record<string, { type: PageType; layoutId: string }> = {
-  'classic-cover': { type: 'cover', layoutId: 'classic-cover' },
-  'impact-bold': { type: 'cover', layoutId: 'impact-bold' },
-  cinematic: { type: 'cover', layoutId: 'cinematic' },
-  blueprint: { type: 'cover', layoutId: 'blueprint' },
-  tabloid: { type: 'cover', layoutId: 'tabloid' },
-  typography: { type: 'cover', layoutId: 'typography' },
-  'classic-article': { type: 'article', layoutId: 'classic-article' },
-  'modern-vertical': { type: 'article', layoutId: 'modern-vertical' },
-  'blueprint-article': { type: 'article', layoutId: 'blueprint-article' },
-  'intensive-reading': { type: 'article', layoutId: 'intensive-reading' },
-  'split-article': { type: 'article', layoutId: 'classic-article' },
-};
 
 export interface CreatePageOptions {
   templateId?: string | null;
@@ -82,17 +73,25 @@ export const DEFAULT_INHERIT_FIELDS: Array<keyof PageData> = [
   'hideDisclaimer',
 ];
 
-function clone<T>(value: T): T {
-  return value === undefined ? value : JSON.parse(JSON.stringify(value));
+function deepClone<T>(value: T): T {
+  if (value === undefined || value === null) return value;
+  if (typeof structuredClone === 'function') {
+    try {
+      return structuredClone(value);
+    } catch {
+      // Fallback below
+    }
+  }
+  return JSON.parse(JSON.stringify(value));
 }
 
 export function createPageFromTemplate(options: CreatePageOptions = {}): PageData {
   const { templateId, type, sourcePage, inheritFields = DEFAULT_INHERIT_FIELDS } = options;
-  const normalizedTemplateId = templateId?.toLowerCase();
-  const templateSpec = normalizedTemplateId ? templateLayoutMap[normalizedTemplateId] : undefined;
+  const templateSpec = getTemplateById(templateId);
 
   const resolvedType: PageType = templateSpec?.type || type || sourcePage?.type || 'cover';
-  const resolvedLayoutId = templateSpec?.layoutId || (resolvedType === 'cover' ? 'classic-cover' : 'classic-article');
+  const resolvedLayoutId =
+    templateSpec?.id || (resolvedType === 'cover' ? DEFAULT_COVER_TEMPLATE_ID : DEFAULT_ARTICLE_TEMPLATE_ID);
 
   const page: PageData = {
     id: nowId(),
@@ -115,7 +114,7 @@ export function createPageFromTemplate(options: CreatePageOptions = {}): PageDat
     for (const field of inheritFields) {
       if (sourcePage[field] !== undefined) {
         // @ts-ignore
-        page[field] = clone(sourcePage[field]);
+        page[field] = deepClone(sourcePage[field]);
       }
     }
 
@@ -128,6 +127,5 @@ export function createPageFromTemplate(options: CreatePageOptions = {}): PageDat
 }
 
 export function getTemplateSpec(templateId: string | null | undefined) {
-  if (!templateId) return null;
-  return templateLayoutMap[templateId.toLowerCase()] || null;
+  return getTemplateById(templateId) || null;
 }

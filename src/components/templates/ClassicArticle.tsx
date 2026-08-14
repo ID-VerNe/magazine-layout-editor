@@ -1,123 +1,71 @@
 import React from 'react';
-import { PageData } from '../../types';
-import { ImageFrame, BylineDisplay, FooterDisplay } from './SharedComponents';
+import { TemplateProps } from '../../types';
+import { ArticleLayoutShell } from './ArticleLayoutShell';
 import { formatMagazineText } from '../../utils/formatter';
-
-interface TemplateProps {
-  page: PageData;
-  pageIndex: number;
-  totalPages: number;
-}
 
 export default function ClassicArticle({ page, pageIndex, totalPages }: TemplateProps) {
   const lineHeight = page.lineHeight || 1.6;
   const spacing = page.paragraphSpacing ?? 32;
   const accentColor = page.accentColor || '#367237';
-  
   const imgPos = page.imagePosition || 'middle';
-  const ratio = page.splitRatio || 64; 
+  const ratio = page.splitRatio || 64;
   const balance = page.fontBalance || 0;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-       <div className="flex-1 min-h-0 flex flex-col magazine-content-container overflow-hidden pb-10">
-          <div className="pt-10 flex flex-col flex-1">
-            {/* Header */}
-            <div className="px-10 mb-2">
-                <h3 
-                  className="font-bold text-lg mb-1 leading-tight whitespace-pre-wrap"
-                  style={{ fontFamily: page.titleEnFont || "'Inter', sans-serif" }}
+    <ArticleLayoutShell page={page} pageIndex={pageIndex} totalPages={totalPages}>
+      <div className="flex flex-col">
+        {page.paragraphs?.map((p, index) => {
+          const isLast = index === (page.paragraphs?.length || 0) - 1;
+          const showBottomSpacing = !isLast || (isLast && imgPos === 'bottom');
+
+          return (
+            <div
+              key={p.id}
+              className="grid relative items-stretch"
+              style={{
+                gridTemplateColumns: `${ratio}fr ${100 - ratio}fr`,
+                gap: '40px',
+                marginBottom: showBottomSpacing ? `${spacing}px` : 0,
+              }}
+            >
+              <div
+                className={`transition-all duration-300 ${p.emphasis ? 'p-4 rounded-lg border-l-4' : ''}`}
+                style={{
+                  backgroundColor: p.emphasis ? `${accentColor}10` : 'transparent',
+                  borderLeftColor: p.emphasis ? accentColor : 'transparent',
+                }}
+              >
+                <p
+                  className="text-justify whitespace-pre-wrap"
+                  style={{
+                    fontFamily: page.paragraphEnFont || "'Inter', sans-serif",
+                    lineHeight,
+                    fontSize: `${16.5 - balance * 0.5}px`,
+                  }}
                 >
-                  {formatMagazineText(page.titleEn || "")}
-                </h3>
-                <div className="w-full h-[3px] bg-neutral-800 mb-4" />
-                <div className="flex justify-between items-center text-neutral-500 mb-6">
-                  <BylineDisplay 
-                    byline={page.byline || ""}
-                    fontFamily={page.bylineFont || "'Inter', sans-serif"}
-                  />
-                  <span className="font-bold not-italic whitespace-pre-wrap" style={{ fontFamily: page.footerFont || "'Inter', sans-serif" }}>{formatMagazineText(page.footerLeft || "")}</span>
-                </div>
-            </div>
-
-            <div className="px-10 flex flex-col flex-1">
-              {/* 1. MIDDLE POSITION IMAGE */}
-              {imgPos === 'middle' && page.image && (
-                <div style={{ marginBottom: `${spacing}px` }}>
-                  <ImageFrame page={page} defaultHeight={300} />
-                </div>
-              )}
-
-              {/* Paragraphs Area */}
-              <div className="flex flex-col">
-                {page.paragraphs?.map((p, index) => {
-                  const isLast = index === (page.paragraphs?.length || 0) - 1;
-                  // 如果图片在中间，且这是第一段，间距由上面的图片 marginBottom 处理
-                  // 这里的逻辑是：每一段下面都带间距，除非是最后一段且下面没有图片/宣传位
-                  const showBottomSpacing = !isLast || (isLast && imgPos === 'bottom');
-                  
-                  return (
-                    <div key={p.id} className="grid relative items-stretch" 
-                         style={{ 
-                           gridTemplateColumns: `${ratio}fr ${100 - ratio}fr`,
-                           gap: '40px',
-                           marginBottom: showBottomSpacing ? `${spacing}px` : 0 
-                         }}>
-                      <div 
-                        className={`transition-all duration-300 ${p.emphasis ? 'p-4 rounded-lg border-l-4' : ''}`}
-                        style={{ 
-                          backgroundColor: p.emphasis ? `${accentColor}10` : 'transparent',
-                          borderLeftColor: p.emphasis ? accentColor : 'transparent'
-                        }}
-                      >
-                        <p 
-                          className="text-justify whitespace-pre-wrap"
-                          style={{ 
-                            fontFamily: page.paragraphEnFont || "'Inter', sans-serif",
-                            lineHeight: lineHeight,
-                            fontSize: `${16.5 - (balance * 0.5)}px`
-                          }}
-                        >
-                          {formatMagazineText(p.en || "")}
-                        </p>
-                      </div>
-                      <div 
-                        className={`border-l pl-10 transition-all duration-300 ${p.emphasis ? 'bg-slate-50/50 border-[#367237]/20' : 'border-neutral-200'}`}
-                      >
-                        <p 
-                          className="text-neutral-700 font-normal text-justify whitespace-pre-wrap"
-                          style={{ 
-                            fontFamily: page.paragraphZhFont || "'Crimson Pro', serif",
-                            lineHeight: lineHeight,
-                            fontSize: `${19 + (balance * 0.8)}px`
-                          }}
-                        >
-                          {formatMagazineText(p.zh || "")}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+                  {formatMagazineText(p.en || '')}
+                </p>
               </div>
-
-              {/* 2. UPON FOOTER IMAGE */}
-              {imgPos === 'bottom' && page.image && (
-                <div className="mt-auto pt-4">
-                  <ImageFrame page={page} defaultHeight={300} />
-                </div>
-              )}
+              <div
+                className={`border-l pl-10 transition-all duration-300 ${
+                  p.emphasis ? 'bg-slate-50/50 border-[#367237]/20' : 'border-neutral-200'
+                }`}
+              >
+                <p
+                  className="text-neutral-700 font-normal text-justify whitespace-pre-wrap"
+                  style={{
+                    fontFamily: page.paragraphZhFont || "'Crimson Pro', serif",
+                    lineHeight,
+                    fontSize: `${19 + balance * 0.8}px`,
+                  }}
+                >
+                  {formatMagazineText(p.zh || '')}
+                </p>
+              </div>
             </div>
-          </div>
-       </div>
-
-       <div className="flex-none">
-          <FooterDisplay page={page} pageIndex={pageIndex} totalPages={totalPages} />
-          {imgPos === 'absolute-bottom' && page.image && (
-            <div className="w-full">
-              <ImageFrame page={page} defaultHeight={300} />
-            </div>
-          )}
-       </div>
-    </div>
+          );
+        })}
+      </div>
+    </ArticleLayoutShell>
   );
 }

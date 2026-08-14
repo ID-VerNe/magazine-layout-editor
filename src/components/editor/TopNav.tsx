@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ZoomOut, ZoomIn, Maximize, Minimize2, Download, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ZoomOut, ZoomIn, Minimize2, Download, ChevronDown } from 'lucide-react';
 
 import { PageSize } from '../../types';
 
@@ -37,6 +37,18 @@ const TopNav: React.FC<TopNavProps> = ({
   setShowExportMenu,
   exportMenuRef
 }) => {
+  // Listen for Escape key to close export menu
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowExportMenu(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showExportMenu, setShowExportMenu]);
+
   return (
     <div className="h-16 px-6 bg-white border-b border-neutral-200 flex justify-between items-center z-10">
       <div className="flex items-center gap-3">

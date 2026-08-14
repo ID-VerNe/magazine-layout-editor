@@ -1,5 +1,6 @@
 import { Mark, mergeAttributes } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
+import { BOUNDARY_CHARS } from '../intensive/annotationHelpers';
 
 export interface AnnotationMarkOptions {
   HTMLAttributes: Record<string, any>;
@@ -65,15 +66,20 @@ export const AnnotationMark = Mark.create<AnnotationMarkOptions>({
         let finalFrom = from;
         let finalTo = to;
         
-        // If empty selection, expand to word
+        // If empty selection, expand to word using BOUNDARY_CHARS for consistent CJK & Latin boundary support
         if (from === to) {
           const $pos = state.doc.resolve(from);
-          const textBefore = $pos.parent.textBetween(0, $pos.parentOffset, undefined, '\ufffc');
-          const textAfter = $pos.parent.textBetween($pos.parentOffset, $pos.parent.nodeSize - 2, undefined, '\ufffc');
-          const matchBefore = textBefore.match(/[^\s.,!?'"()]+$/);
-          const matchAfter = textAfter.match(/^[^\s.,!?'"()]+/);
-          if (matchBefore) finalFrom -= matchBefore[0].length;
-          if (matchAfter) finalTo += matchAfter[0].length;
+          const text = $pos.parent.textContent;
+          const parentOffset = $pos.parentOffset;
+
+          let start = parentOffset;
+          while (start > 0 && !BOUNDARY_CHARS.has(text[start - 1])) start--;
+
+          let end = parentOffset;
+          while (end < text.length && !BOUNDARY_CHARS.has(text[end])) end++;
+
+          finalFrom = $pos.pos - parentOffset + start;
+          finalTo = $pos.pos - parentOffset + end;
           
           if (finalFrom === finalTo) return false;
           

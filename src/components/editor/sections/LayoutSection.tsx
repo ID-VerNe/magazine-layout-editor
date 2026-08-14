@@ -2,6 +2,7 @@ import React from 'react';
 import { Layout, ChevronDown } from 'lucide-react';
 import { PageData } from '../../../types';
 import { Label } from '../../ui/Base';
+import { TEMPLATES } from '../../../config/templates';
 
 interface SectionProps {
   page: PageData;
@@ -12,6 +13,9 @@ export const LayoutSection: React.FC<SectionProps> = ({ page, onUpdate }) => {
   const handleChange = (value: string) => {
     onUpdate({ ...page, layoutId: value });
   };
+
+  const coverTemplates = TEMPLATES.filter(tpl => tpl.type === 'cover');
+  const articleTemplates = TEMPLATES.filter(tpl => tpl.type === 'article');
 
   return (
     <section className="space-y-4">
@@ -24,19 +28,19 @@ export const LayoutSection: React.FC<SectionProps> = ({ page, onUpdate }) => {
         >
           {page.type === 'cover' ? (
             <optgroup label="Cover Layouts">
-              <option value="classic-cover">Classic Editorial</option>
-              <option value="impact-bold">Impact Bold</option>
-              <option value="cinematic">Cinematic 16:9</option>
-              <option value="blueprint">Engineering Blueprint</option>
-              <option value="tabloid">Tabloid News</option>
-              <option value="typography">Typographic Poster</option>
+              {coverTemplates.map(tpl => (
+                <option key={tpl.id} value={tpl.id}>
+                  {tpl.name}
+                </option>
+              ))}
             </optgroup>
           ) : (
             <optgroup label="Article Layouts">
-              <option value="classic-article">Modern Split</option>
-              <option value="modern-vertical">Modern Vertical</option>
-              <option value="blueprint-article">Engineering Blueprint</option>
-              <option value="intensive-reading">Intensive Reading</option>
+              {articleTemplates.map(tpl => (
+                <option key={tpl.id} value={tpl.id}>
+                  {tpl.name}
+                </option>
+              ))}
             </optgroup>
           )}
         </select>

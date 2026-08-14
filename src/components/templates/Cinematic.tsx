@@ -1,22 +1,15 @@
-import React, { useRef, useState, useLayoutEffect } from 'react';
-import { PageData } from '../../types';
+import React from 'react';
+import { TemplateProps } from '../../types';
 import AutoFitHeadline from '../AutoFitHeadline';
 import { formatMagazineText } from '../../utils/formatter';
 import { FooterDisplay } from './SharedComponents';
-
-interface TemplateProps {
-  page: PageData;
-  pageIndex: number;
-  totalPages: number;
-}
+import { getImagePositionStyles } from '../../utils/imageUtils';
 
 export default function Cinematic({ page, pageIndex, totalPages }: TemplateProps) {
-  const config = page.imageConfig || { scale: 1, x: 0, y: 0, height: 450 };
-  const posX = 50 - (config.x / 2);
-  const posY = 50 - (config.y / 2);
+  const { transform, objectPosition } = getImagePositionStyles(page.imageConfig, 450);
 
   // Split byline: expecting "Author | Magazine"
-  const parts = (page.byline || "").split('|').map(s => s.trim());
+  const parts = (page.byline || '').split('|').map(s => s.trim());
   let author = parts[0] || '';
   const magazine = parts[1] || '';
 
@@ -50,9 +43,10 @@ export default function Cinematic({ page, pageIndex, totalPages }: TemplateProps
                 src={page.image} 
                 className="w-full h-full object-cover" 
                 style={{
-                  transform: `scale(${config.scale})`,
-                  objectPosition: `${posX}% ${posY}%`,
+                  transform,
+                  objectPosition,
                 }}
+                alt="Cinematic frame"
               />
             )}
           </div>

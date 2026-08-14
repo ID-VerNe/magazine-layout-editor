@@ -1,6 +1,7 @@
 import React from 'react';
 import Preview from '../Preview';
 import { PageData, PageSize } from '../../types';
+import { ErrorBoundary } from '../ErrorBoundary';
 
 interface PreviewAreaProps {
   pages: PageData[];
@@ -34,13 +35,15 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
             data-page-id={page.id}
             className={`magazine-page-container ${idx === currentPageIndex ? 'block' : 'hidden'} shadow-2xl shadow-slate-300/50`}
           >
-            <Preview 
-              page={page} 
-              pageIndex={idx} 
-              totalPages={pages.length} 
-              pageSize={pageSize} 
-              onOverflowChange={(overflow) => onOverflowChange(page.id, overflow)}
-            />
+            <ErrorBoundary key={page.id} fallbackTitle={`Page ${idx + 1} Render Error`}>
+              <Preview 
+                page={page} 
+                pageIndex={idx} 
+                totalPages={pages.length} 
+                pageSize={pageSize} 
+                onOverflowChange={(overflow) => onOverflowChange(page.id, overflow)}
+              />
+            </ErrorBoundary>
           </div>
         ))}
       </div>

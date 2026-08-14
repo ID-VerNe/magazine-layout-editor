@@ -1,59 +1,18 @@
 import React from 'react';
-import { PageData } from '../../types';
+import { TemplateProps } from '../../types';
 import AutoFitHeadline from '../AutoFitHeadline';
-import { ImageFrame, BylineDisplay, FooterDisplay } from './SharedComponents';
+import { ImageFrame, BylineDisplay, FooterDisplay, CoverBadgeLogo } from './SharedComponents';
 import { formatMagazineText } from '../../utils/formatter';
-
-interface TemplateProps {
-  page: PageData;
-  pageIndex: number;
-  totalPages: number;
-}
 
 export default function ClassicCover({ page, pageIndex, totalPages }: TemplateProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 flex flex-col">
         {page.image ? (
-              <ImageFrame page={page} defaultHeight={500} />
-            ) : (
+          <ImageFrame page={page} defaultHeight={500} />
+        ) : (
           <div className="pt-20 px-10 relative">
-            {(page.featuredText || page.logo) && (
-              <div 
-                className="absolute top-12 right-10 flex items-center gap-2 z-10"
-                style={{ 
-                  backgroundColor: page.featuredText ? (page.badgeColor || '#ccff33') : 'transparent',
-                  padding: page.featuredText ? '12px 12px' : '0px',
-                  borderRadius: '50%',
-                  width: '80px',
-                  height: '80px',
-                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  textAlign: 'center',
-                  transform: 'rotate(12deg)',
-                  border: '2px dashed rgba(0,0,0,0.1)'
-                }}
-              >
-                 <div 
-                  className="flex items-center justify-center overflow-hidden mx-auto"
-                  style={{ 
-                    width: 'auto', 
-                    height: `${page.featuredText ? 24 : (page.logoSize || 32)}px`,
-                  }}
-                 >
-                  {page.logo ? (
-                    <img src={page.logo} className="h-full w-auto object-contain" alt="Logo" />
-                  ) : (
-                    <div className="w-6 h-6 bg-slate-900 rounded-full flex items-center justify-center text-white font-bold text-[10px]">M</div>
-                  )}
-                 </div>
-                 {page.featuredText && (
-                   <span className="font-black text-[10px] uppercase leading-none mt-1 text-slate-900">{page.featuredText}</span>
-                 )}
-              </div>
-            )}
+            <CoverBadgeLogo page={page} />
           </div>
         )}
 

@@ -1,4 +1,3 @@
-
 export type PageType = 'cover' | 'article';
 
 export interface ExternalAnnotation {
@@ -51,7 +50,7 @@ export interface PageData {
   footerLogoSize?: number;
   footerRightX?: number;
   footerRightY?: number;
-  splitRatio?: number; // 英文占比，默认 60
+  splitRatio?: number; // 英文占比，默认 64
   fontBalance?: number; // 调整语种间的相对大小，默认 0
   imageConfig?: ImageConfig;
   titleEn: string;
@@ -77,13 +76,13 @@ export interface PageData {
   quoteEn?: string;
   quoteZh?: string;
   featuredText?: string;
+
   // Article specific
   paragraphs?: Paragraph[];
   footnote?: string;
   
   // Intensive reading layout specific
   leftContent?: string;
-  rightContent?: string;
   annotations?: ExternalAnnotation[];
   annotationStyle?: 'dual' | 'single';
   annotationTheme?: 'highlight' | 'underline' | 'both';
@@ -104,7 +103,13 @@ export interface ProjectData {
   customFonts: CustomFont[];
   settings: {
     pageSize: PageSize;
-  }
+  };
+}
+
+export interface TemplateProps {
+  page: PageData;
+  pageIndex: number;
+  totalPages: number;
 }
 
 export interface AppState {

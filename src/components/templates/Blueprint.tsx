@@ -1,19 +1,12 @@
 import React from 'react';
-import { PageData } from '../../types';
+import { TemplateProps } from '../../types';
 import AutoFitHeadline from '../AutoFitHeadline';
 import { formatMagazineText } from '../../utils/formatter';
 import { FooterDisplay } from './SharedComponents';
-
-interface TemplateProps {
-  page: PageData;
-  pageIndex: number;
-  totalPages: number;
-}
+import { getImagePositionStyles } from '../../utils/imageUtils';
 
 export default function Blueprint({ page, pageIndex, totalPages }: TemplateProps) {
-  const config = page.imageConfig || { scale: 1, x: 0, y: 0, height: 400 };
-  const posX = 50 - (config.x / 2);
-  const posY = 50 - (config.y / 2);
+  const { transform, objectPosition } = getImagePositionStyles(page.imageConfig, 400);
 
   return (
     <div className="w-full h-full flex flex-col p-10 border-[20px] border-white relative font-mono text-slate-700 overflow-hidden">
@@ -48,9 +41,10 @@ export default function Blueprint({ page, pageIndex, totalPages }: TemplateProps
                 src={page.image} 
                 className="w-full h-full object-cover" 
                 style={{
-                  transform: `scale(${config.scale})`,
-                  objectPosition: `${posX}% ${posY}%`,
+                  transform,
+                  objectPosition,
                 }}
+                alt="Blueprint cover"
               />
             )}
             <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.02),rgba(0,255,0,0.01),rgba(0,0,255,0.02))] bg-[length:100%_4px,3px_100%] pointer-events-none" />
@@ -100,7 +94,7 @@ export default function Blueprint({ page, pageIndex, totalPages }: TemplateProps
                 {page.quoteEn && (
                   <p 
                     className="text-xs italic font-medium leading-relaxed text-slate-500 max-w-xl whitespace-pre-wrap"
-                    style={{ fontFamily: page.quoteEnFont || page.paragraphEnFont }}
+                    style={{ fontFamily: page.quoteEnFont || "'Inter', sans-serif" }}
                   >
                     {formatMagazineText(`> ${page.quoteEn}`)}
                   </p>
@@ -108,7 +102,7 @@ export default function Blueprint({ page, pageIndex, totalPages }: TemplateProps
                 {page.quoteZh && (
                   <p 
                     className="text-sm font-bold leading-relaxed text-slate-600 max-w-xl whitespace-pre-wrap"
-                    style={{ fontFamily: page.quoteZhFont || page.paragraphZhFont }}
+                    style={{ fontFamily: page.quoteZhFont || "'Crimson Pro', serif" }}
                   >
                     {formatMagazineText(page.quoteZh)}
                   </p>
@@ -119,7 +113,7 @@ export default function Blueprint({ page, pageIndex, totalPages }: TemplateProps
 
           {/* Technical Stamp Decoration */}
           {page.showApprovedStamp !== false && (
-            <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none">
+            <div className="absolute right-4 bottom-2 opacity-15 pointer-events-none z-10">
               <div className="border-4 border-slate-900 p-2 font-black text-4xl rotate-[-15deg] uppercase">
                 Approved
               </div>

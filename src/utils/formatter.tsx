@@ -35,6 +35,7 @@ export function formatMagazineText(text: string | undefined | null) {
         case 'i': return <em key={i} className="italic" style={style}>{content}</em>;
         case 'u': return <u key={i} className="underline decoration-current underline-offset-2" style={style}>{content}</u>;
         case 's': return <del key={i} className="line-through opacity-70" style={style}>{content}</del>;
+        default: return <span key={i} style={style}>{content}</span>;
       }
     }
 

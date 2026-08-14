@@ -1,19 +1,12 @@
 import React from 'react';
-import { PageData } from '../../types';
+import { TemplateProps } from '../../types';
 import AutoFitHeadline from '../AutoFitHeadline';
 import { formatMagazineText } from '../../utils/formatter';
 import { FooterDisplay } from './SharedComponents';
-
-interface TemplateProps {
-  page: PageData;
-  pageIndex: number;
-  totalPages: number;
-}
+import { getImagePositionStyles } from '../../utils/imageUtils';
 
 export default function ImpactBold({ page, pageIndex, totalPages }: TemplateProps) {
-  const config = page.imageConfig || { scale: 1, x: 0, y: 0, height: 1131 };
-  const posX = 50 - (config.x / 2);
-  const posY = 50 - (config.y / 2);
+  const { transform, objectPosition } = getImagePositionStyles(page.imageConfig, 1131);
 
   return (
     <div className="relative w-full h-full flex flex-col overflow-hidden">
@@ -25,9 +18,10 @@ export default function ImpactBold({ page, pageIndex, totalPages }: TemplateProp
               src={page.image} 
               className="w-full h-full object-cover" 
               style={{
-                transform: `scale(${config.scale})`,
-                objectPosition: `${posX}% ${posY}%`,
+                transform,
+                objectPosition,
               }}
+              alt="Impact background"
             />
           )}
           <div className="absolute inset-0 bg-black/50" />
@@ -70,12 +64,12 @@ export default function ImpactBold({ page, pageIndex, totalPages }: TemplateProp
           {(page.quoteEn || page.quoteZh) && (
             <div className="max-w-2xl border-t-2 border-white/20 pt-8 space-y-4 mt-4">
               {page.quoteEn && (
-                <p className="text-xl italic font-medium opacity-90 leading-relaxed whitespace-pre-wrap" style={{ fontFamily: page.quoteEnFont || page.paragraphEnFont }}>
+                <p className="text-xl italic font-medium opacity-90 leading-relaxed whitespace-pre-wrap" style={{ fontFamily: page.quoteEnFont || "'Inter', sans-serif" }}>
                   {formatMagazineText(page.quoteEn)}
                 </p>
               )}
               {page.quoteZh && (
-                <p className="text-2xl font-light opacity-80 leading-snug whitespace-pre-wrap" style={{ fontFamily: page.quoteZhFont || page.paragraphZhFont }}>
+                <p className="text-2xl font-light opacity-80 leading-snug whitespace-pre-wrap" style={{ fontFamily: page.quoteZhFont || "'Crimson Pro', serif" }}>
                   {formatMagazineText(page.quoteZh)}
                 </p>
               )}

@@ -1,372 +1,23 @@
-import React, { useCallback, useEffect, useRef, useMemo, memo } from 'react';
+import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react';
 import { EditorContent, useEditor, Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
-import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyle } from '@tiptap/extension-text-style';
-import { MessageSquare, Link as LinkIcon, Quote, Paintbrush, AlignLeft, Hash, X, Bold, Italic } from 'lucide-react';
-import { PageData, CustomFont } from '../../../types';
+import { MessageSquare, Link as LinkIcon } from 'lucide-react';
+import { PageData, CustomFont, ExternalAnnotation } from '../../../types';
 import { Label } from '../../ui/Base';
 
 import { FontSize } from '../extensions/FontSize';
 import { AnnotationMark } from '../extensions/AnnotationMark';
-import DOMPurify from 'dompurify';
-
-interface ExternalAnnotation {
-  id: string;
-  seq: number;
-  text: string;
-  from: number;
-  to: number;
-  comment?: string;
-  fontSize?: string;
-}
-
-// Fast word boundary detection using Set (O(1) lookup vs O(n) regex)
-const BOUNDARY_CHARS = new Set([
-  ' ', '\t', '\n', ',', '.', '-', '!', '?', ';', ':', '"', "'",
-  '(', ')', '[', ']', '{', '}', '<', '>',
-  '，', '。', '！', '？', '；', '：', '“', '”', '‘', '’', '（', '）', '【', '】', '《', '》',
-  '…', '—', '～', '·',
-]);
-
-// Extract annotations from ProseMirror document, preserving existing comments.
-// Re-sequences by position (1..N) in-place.
-function extractAnnotationsFromDoc(doc: any, existingAnnotations: ExternalAnnotation[]): ExternalAnnotation[] {
-  const map = new Map<string, ExternalAnnotation>();
-  const extracted: ExternalAnnotation[] = [];
-
-  doc.descendants((node: any, pos: number) => {
-    const mark = node.marks.find((m: any) => m.type.name === 'annotationMark');
-    if (mark) {
-      const id = mark.attrs.id;
-      if (map.has(id)) {
-        map.get(id)!.text += node.text || '';
-        map.get(id)!.to = pos + node.nodeSize;
-      } else {
-        const oldAnn = existingAnnotations.find(a => a.id === id);
-        extracted.push({
-          id, seq: parseInt(mark.attrs.seq, 10),
-          text: node.text || '',
-          from: pos, to: pos + node.nodeSize,
-          comment: oldAnn?.comment,
-          fontSize: oldAnn?.fontSize,
-        });
-        map.set(id, extracted[extracted.length - 1]);
-      }
-    }
-  });
-
-  extracted.sort((a, b) => a.from - b.from);
-  extracted.forEach((ann, i) => { ann.seq = i + 1; });
-
-  return extracted;
-}
-
-// Lightweight snapshot for change detection.
-function annotationHash(annotations: ExternalAnnotation[]): string {
-  if (annotations.length === 0) return '';
-  return annotations.map(a => `${a.id}:${a.seq}:${a.text}`).join('|');
-}
-
-// Fix mark seq numbers in the editor by walking the CURRENT doc (positions are always
-// valid — never use stale from/to captured earlier). Guarded by transaction meta so
-// onUpdate doesn't re-enter.
-function syncMarkSeq(editor: Editor, annotations: ExternalAnnotation[]) {
-  const seqMap = new Map(annotations.map(a => [a.id, a.seq]));
-  const tr = editor.state.tr;
-  let changed = false;
-  editor.state.doc.descendants((node, pos) => {
-    const mark = node.marks.find(m => m.type.name === 'annotationMark');
-    if (mark && seqMap.has(mark.attrs.id)) {
-      const newSeq = seqMap.get(mark.attrs.id);
-      if (String(mark.attrs.seq) !== String(newSeq)) {
-        const newMark = editor.schema.marks.annotationMark.create({ ...mark.attrs, seq: newSeq });
-        tr.addMark(pos, pos + node.nodeSize, newMark);
-        changed = true;
-      }
-    }
-  });
-  if (changed) {
-    tr.setMeta('annotationUpdate', true);
-    editor.view.dispatch(tr);
-  }
-}
-
-// ─── ToolbarButton ───────────────────────────────────────────────
-
-const ToolbarButton: React.FC<{
-  onClick: () => void;
-  isActive?: boolean;
-  icon: React.ElementType;
-  title: string;
-  isAction?: boolean;
-  disabled?: boolean;
-}> = memo(({ onClick, isActive, icon: Icon, title, isAction, disabled }) => (
-  <button
-    onClick={onClick}
-    title={title}
-    disabled={disabled}
-    className={`p-1.5 rounded transition-colors ${
-      disabled
-        ? 'opacity-40 cursor-not-allowed text-slate-400'
-        : isActive
-          ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300'
-          : isAction
-            ? 'text-slate-700 bg-white shadow-sm border border-slate-200 hover:bg-slate-50'
-            : 'text-slate-600 hover:bg-slate-200/50 hover:text-slate-900'
-    }`}
-  >
-    <Icon size={14} />
-  </button>
-));
-
-// ─── ClickWordSelection ──────────────────────────────────────────
-
-const ClickWordSelection = Extension.create({
-  name: 'clickWordSelection',
-  addProseMirrorPlugins() {
-    return [
-      new Plugin({
-        key: new PluginKey('clickWordSelection'),
-        props: {
-          handleClick(view, pos) {
-            const { state } = view;
-            if (view.editable) return false;
-
-            const $pos = state.doc.resolve(pos);
-            if (!$pos.parent.isTextblock) return false;
-
-            const text = $pos.parent.textContent;
-            const parentOffset = $pos.parentOffset;
-
-            let start = parentOffset;
-            while (start > 0 && !BOUNDARY_CHARS.has(text[start - 1])) start--;
-
-            let end = parentOffset;
-            while (end < text.length && !BOUNDARY_CHARS.has(text[end])) end++;
-
-            const absStart = $pos.pos - parentOffset + start;
-            const absEnd = $pos.pos - parentOffset + end;
-
-            if (absStart < absEnd) {
-              const tr = state.tr;
-              tr.setSelection(TextSelection.create(state.doc, absStart, absEnd));
-              view.dispatch(tr);
-              return true;
-            }
-            return false;
-          },
-        },
-      }),
-    ];
-  },
-});
-
-// ─── CommentEditor (lightweight contentEditable) ─────────────────
-
-const CommentEditor = memo(({
-  annotation,
-  onUpdate,
-  onRemove,
-  hideSeq,
-  customFonts,
-  onSetAnnotationFontSize,
-}: {
-  annotation: ExternalAnnotation;
-  onUpdate: (id: string, html: string) => void;
-  onRemove: (id: string) => void;
-  hideSeq?: boolean;
-  customFonts: CustomFont[];
-  onSetAnnotationFontSize: (id: string, size: string) => void;
-}) => {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
-  const isFocusedRef = useRef(false);
-  const lastExternalCommentRef = useRef<string | undefined>(annotation.comment);
-
-  // Initialize content on mount only.
-  useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.innerHTML = DOMPurify.sanitize(annotation.comment || '');
-    }
-  }, []);
-
-  // Sync external comment changes only when the user isn't actively editing.
-  useEffect(() => {
-    if (!editorRef.current) return;
-    if (isFocusedRef.current) return;
-    if (annotation.comment !== lastExternalCommentRef.current) {
-      editorRef.current.innerHTML = DOMPurify.sanitize(annotation.comment || '');
-      lastExternalCommentRef.current = annotation.comment;
-    }
-  }, [annotation.comment]);
-
-  const handleInput = useCallback(() => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      if (editorRef.current) {
-        onUpdate(annotation.id, editorRef.current.innerHTML);
-      }
-    }, 800);
-  }, [annotation.id, onUpdate]);
-
-  const toggleMark = useCallback((tag: 'b' | 'i') => {
-    const el = editorRef.current;
-    if (!el) return;
-    el.focus();
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
-
-    const range = sel.getRangeAt(0);
-    const container = range.commonAncestorContainer;
-    const elem = container.nodeType === Node.ELEMENT_NODE
-      ? container as HTMLElement
-      : container.parentElement;
-    const selector = tag === 'b' ? 'b,strong' : 'i,em';
-    const formatted = elem?.closest(selector);
-
-    if (formatted) {
-      const parent = formatted.parentNode;
-      if (parent) {
-        while (formatted.firstChild) parent.insertBefore(formatted.firstChild, formatted);
-        parent.removeChild(formatted);
-      }
-    } else {
-      const markEl = document.createElement(tag);
-      try {
-        range.surroundContents(markEl);
-      } catch {
-        document.execCommand(tag === 'b' ? 'bold' : 'italic', false);
-      }
-    }
-    el.focus();
-    handleInput();
-  }, [handleInput]);
-
-  // Apply an inline style (font-size / font-family) to the current selection by
-  // wrapping it in a styled <span> — the contentEditable equivalent of textStyle.
-  const applyStyle = useCallback((prop: 'fontSize' | 'fontFamily', value: string) => {
-    const el = editorRef.current;
-    if (!el) return;
-    el.focus();
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
-
-    const range = sel.getRangeAt(0);
-    const span = document.createElement('span');
-    span.style[prop] = value;
-    try {
-      range.surroundContents(span);
-    } catch {
-      const frag = range.extractContents();
-      span.appendChild(frag);
-      range.insertNode(span);
-    }
-    sel.removeAllRanges();
-    sel.addRange(range);
-    el.focus();
-    handleInput();
-  }, [handleInput]);
-
-  return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden bg-white mb-3 shadow-sm">
-      <div className="bg-slate-50 text-xs font-bold text-[#367237] p-2 border-b flex justify-between items-center">
-        <span>{!hideSeq && `[${annotation.seq}] `}{annotation.text}</span>
-        <div className="flex items-center gap-1">
-          <select
-            value={annotation.fontSize || ''}
-            onChange={(e) => onSetAnnotationFontSize(annotation.id, e.target.value)}
-            className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-amber-50 text-slate-500 focus:outline-none cursor-pointer"
-            title="标注本体字号（右侧批注区显示的标注文字）"
-          >
-            <option value="">注字</option>
-            <option value="12px">12</option>
-            <option value="14px">14</option>
-            <option value="16px">16</option>
-            <option value="18px">18</option>
-            <option value="20px">20</option>
-            <option value="24px">24</option>
-          </select>
-          <div className="w-px h-3 bg-slate-300 mx-0.5" />
-          <button
-            onMouseDown={(e) => { e.preventDefault(); toggleMark('b'); }}
-            className="p-1 rounded hover:bg-slate-200 text-slate-500"
-            title="Bold"
-          >
-            <Bold size={12} />
-          </button>
-          <button
-            onMouseDown={(e) => { e.preventDefault(); toggleMark('i'); }}
-            className="p-1 rounded hover:bg-slate-200 text-slate-500"
-            title="Italic"
-          >
-            <Italic size={12} />
-          </button>
-          <select
-            defaultValue=""
-            onChange={(e) => { const v = e.target.value; if (v) applyStyle('fontSize', v); e.target.value = ''; }}
-            className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-white text-slate-500 focus:outline-none cursor-pointer"
-            title="Font size"
-          >
-            <option value="" disabled>Size</option>
-            <option value="12px">12</option>
-            <option value="14px">14</option>
-            <option value="16px">16</option>
-            <option value="18px">18</option>
-            <option value="20px">20</option>
-            <option value="24px">24</option>
-          </select>
-          <select
-            defaultValue=""
-            onChange={(e) => { const v = e.target.value; if (v) applyStyle('fontFamily', v); e.target.value = ''; }}
-            className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-white text-slate-500 focus:outline-none cursor-pointer max-w-[110px]"
-            title="Font family"
-          >
-            <option value="" disabled>Font</option>
-            <option value="'Inter', sans-serif">Inter</option>
-            <option value="'Crimson Pro', serif">Crimson Pro</option>
-            <option value="'Noto Serif SC', serif">Noto Serif SC</option>
-            {customFonts.map(f => (
-              <option key={f.family} value={f.family}>{f.name}</option>
-            ))}
-          </select>
-          <div className="w-px h-3 bg-slate-300 mx-0.5" />
-          <button
-            onClick={() => onRemove(annotation.id)}
-            className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50"
-            title="Remove annotation"
-          >
-            <X size={12} />
-          </button>
-        </div>
-      </div>
-      <div
-        ref={editorRef}
-        className="p-2 prose prose-sm max-w-none focus:outline-none min-h-[60px]"
-        contentEditable
-        suppressContentEditableWarning
-        onInput={handleInput}
-        onFocus={() => { isFocusedRef.current = true; }}
-        onBlur={() => { isFocusedRef.current = false; }}
-      />
-    </div>
-  );
-}, (prev, next) => {
-  return prev.annotation.id === next.annotation.id
-    && prev.annotation.seq === next.annotation.seq
-    && prev.annotation.comment === next.annotation.comment
-    && prev.annotation.text === next.annotation.text
-    && prev.annotation.fontSize === next.annotation.fontSize
-    && prev.hideSeq === next.hideSeq
-    && prev.customFonts === next.customFonts
-    && prev.onSetAnnotationFontSize === next.onSetAnnotationFontSize
-    && prev.onUpdate === next.onUpdate
-    && prev.onRemove === next.onRemove;
-});
-
-// ─── Main Section ────────────────────────────────────────────────
+import { ClickWordSelection } from '../extensions/ClickWordSelection';
+import { CommentEditor } from '../intensive/CommentEditor';
+import { ArticleToolbar, CommentsToolbar } from '../intensive/IntensiveToolbar';
+import {
+  extractAnnotationsFromDoc,
+  annotationHash,
+  syncMarkSeq,
+  getAnnotationThemeCSS,
+} from '../intensive/annotationHelpers';
 
 interface SectionProps {
   page: PageData;
@@ -375,113 +26,108 @@ interface SectionProps {
 }
 
 export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate, customFonts }) => {
-  const [isAnnotateMode, setIsAnnotateMode] = React.useState(true);
+  const [isAnnotateMode, setIsAnnotateMode] = useState(true);
   const pageRef = useRef(page);
-  const updateTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
-  const lastAnnotationHashRef = useRef('');
+  const onUpdateRef = useRef(onUpdate);
+  onUpdateRef.current = onUpdate;
+
+  const activePageIdRef = useRef(page.id);
   const leftContentRef = useRef(page.leftContent || '');
+  const lastAnnotationHashRef = useRef('');
+  
+  const updateTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const commentDebounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const periodicSyncRef = useRef<ReturnType<typeof setInterval>>(null);
 
-  // ── Local annotations state (decoupled from global state) ──────
+  // Map of pageId -> Record<annotationId, commentHtml>
+  const localCommentsByPageRef = useRef<Record<string, Record<string, string>>>({});
+  const [renderTick, setRenderTick] = useState(0);
 
-  // localCommentsRef stores comments that have been edited but NOT yet synced to global state.
-  // This is the KEY optimization: typing in a CommentEditor only updates this ref + triggers
-  // a local re-render, skipping the entire setPages → EditorPanel → Editor cascade.
-  const localCommentsRef = useRef<Record<string, string | undefined>>({});
-  const [renderTick, setRenderTick] = React.useState(0);
-  // Trailing debounce: flush local comments to global state 1500ms after the last keystroke,
-  // so edits persist (autosave) without janking the interaction.
-  const localFlushTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
-
-  // Merge local comments into page annotations for rendering.
-  // Stale comments in localCommentsRef are merged on top of page.annotations.
-  const activeAnnotations = useMemo((): ExternalAnnotation[] => {
-    const base = page.annotations ?? [];
-    const localKeys = Object.keys(localCommentsRef.current);
-    if (localKeys.length === 0) return base;
-    return base.map(ann => ({
-      ...ann,
-      comment: ann.id in localCommentsRef.current
-        ? localCommentsRef.current[ann.id]
-        : ann.comment,
-    }));
-  }, [page.annotations, renderTick]);
-
-  // Sync local comments to global state (called when leaving the page etc.)
-  const syncLocalComments = useCallback(() => {
-    const keys = Object.keys(localCommentsRef.current);
-    if (keys.length === 0) return;
-    const base = pageRef.current.annotations ?? [];
-    let changed = false;
-    const merged = base.map(ann => {
-      if (ann.id in localCommentsRef.current && localCommentsRef.current[ann.id] !== ann.comment) {
-        changed = true;
-        return { ...ann, comment: localCommentsRef.current[ann.id] };
-      }
-      return ann;
-    });
-    if (changed) {
-      onUpdate({ ...pageRef.current, annotations: merged });
-    }
-    localCommentsRef.current = {};
-  }, [onUpdate]);
-
-  // ── Effects ────────────────────────────────────────────────────
-
+  // Update pageRef and handle pageId changes
   useEffect(() => {
+    // If switching to a different page, flush previous page's pending comments first
+    if (activePageIdRef.current !== page.id) {
+      const prevPageId = activePageIdRef.current;
+      const prevPending = localCommentsByPageRef.current[prevPageId];
+      if (prevPending && Object.keys(prevPending).length > 0 && pageRef.current.id === prevPageId) {
+        const baseAnns = pageRef.current.annotations || [];
+        const merged = baseAnns.map(ann => ({
+          ...ann,
+          comment: ann.id in prevPending ? prevPending[ann.id] : ann.comment,
+        }));
+        onUpdateRef.current({ ...pageRef.current, annotations: merged });
+        delete localCommentsByPageRef.current[prevPageId];
+      }
+      activePageIdRef.current = page.id;
+      lastAnnotationHashRef.current = '';
+    }
     pageRef.current = page;
   }, [page]);
 
-  // Sync leftContent to global state for preview.
+  const activeAnnotations = useMemo((): ExternalAnnotation[] => {
+    const base = page.annotations ?? [];
+    const pagePending = localCommentsByPageRef.current[page.id];
+    if (!pagePending || Object.keys(pagePending).length === 0) return base;
+    return base.map(ann => ({
+      ...ann,
+      comment: ann.id in pagePending ? pagePending[ann.id] : ann.comment,
+    }));
+  }, [page.id, page.annotations, renderTick]);
+
   const syncLeftContent = useCallback((editor: Editor) => {
     const html = editor.getHTML();
-    if (html !== leftContentRef.current) {
+    if (html !== leftContentRef.current && activePageIdRef.current === pageRef.current.id) {
       leftContentRef.current = html;
-      onUpdate({ ...pageRef.current, leftContent: html });
+      onUpdateRef.current({ ...pageRef.current, leftContent: html });
     }
-  }, [onUpdate]);
+  }, []);
 
-  // Extract annotations + sync to global state when they actually change.
-  // Merges local comments before persisting.
-  const flushAnnotations = useCallback((editor: Editor) => {
+  const flushAll = useCallback((editor: Editor) => {
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+      updateTimeoutRef.current = null;
+    }
+    if (commentDebounceRef.current) {
+      clearTimeout(commentDebounceRef.current);
+      commentDebounceRef.current = null;
+    }
+
     const html = editor.getHTML();
     const htmlChanged = html !== leftContentRef.current;
     leftContentRef.current = html;
-    
+
+    const currentPageId = pageRef.current.id;
     const annotations = extractAnnotationsFromDoc(
       editor.state.doc,
       pageRef.current.annotations || [],
     );
 
-    // Merge local comments into extracted annotations before persisting.
-    // Track whether any were consumed so we never drop them on the floor.
-    const localKeys = Object.keys(localCommentsRef.current);
-    let consumedLocal = false;
-    if (localKeys.length > 0) {
+    const pendingComments = localCommentsByPageRef.current[currentPageId];
+    let commentsConsumed = false;
+    if (pendingComments && Object.keys(pendingComments).length > 0) {
       annotations.forEach(ann => {
-        if (ann.id in localCommentsRef.current) {
-          ann.comment = localCommentsRef.current[ann.id];
-          consumedLocal = true;
+        if (ann.id in pendingComments) {
+          ann.comment = pendingComments[ann.id];
+          commentsConsumed = true;
         }
       });
-      localCommentsRef.current = {};
+      delete localCommentsByPageRef.current[currentPageId];
     }
 
     const newHash = annotationHash(annotations);
     const annotationsChanged = newHash !== lastAnnotationHashRef.current;
     lastAnnotationHashRef.current = newHash;
 
-    if (annotationsChanged || consumedLocal || htmlChanged) {
-      onUpdate({ ...pageRef.current, leftContent: html, annotations });
+    if (annotationsChanged || commentsConsumed || htmlChanged) {
+      onUpdateRef.current({ ...pageRef.current, leftContent: html, annotations });
     }
     if (annotationsChanged) {
-      // Walk the CURRENT doc to fix seq numbers — never stale positions.
       syncMarkSeq(editor, annotations);
     }
-  }, [onUpdate]);
+  }, []);
 
-  const flushAnnotationsRef = useRef(flushAnnotations);
-  flushAnnotationsRef.current = flushAnnotations;
+  const flushAllRef = useRef(flushAll);
+  flushAllRef.current = flushAll;
 
   const extensions = useMemo(() => [
     StarterKit,
@@ -497,26 +143,22 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
     content: page.leftContent || '<p>Start typing the main article text here...</p>',
     onUpdate: ({ editor, transaction }) => {
       if (transaction?.getMeta('annotationUpdate')) return;
-
       if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
-      updateTimeoutRef.current = setTimeout(() => flushAnnotationsRef.current(editor), 300);
+      updateTimeoutRef.current = setTimeout(() => flushAllRef.current(editor), 250);
     },
   });
 
-  // Reset editor content when switching to a different page.
+  // Only reset content when switching pages or when editor is NOT actively focused
   useEffect(() => {
     if (!leftEditor) return;
     const content = page.leftContent || '<p>Start typing the main article text here...</p>';
-    if (leftEditor.getHTML() !== content) {
+    if (activePageIdRef.current !== page.id || (!leftEditor.isFocused && leftEditor.getHTML() !== content)) {
       leftEditor.commands.setContent(content);
+      leftContentRef.current = content;
     }
-    leftContentRef.current = content;
-    lastAnnotationHashRef.current = '';
-    localCommentsRef.current = {};
-    setRenderTick(t => t + 1);
   }, [page.id, page.leftContent, leftEditor]);
 
-  // Periodic sync: flush leftContent to global state every 5s during active editing.
+  // Periodic sync for left content while editing
   useEffect(() => {
     if (isAnnotateMode || !leftEditor) return;
     periodicSyncRef.current = setInterval(() => {
@@ -527,7 +169,6 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
     };
   }, [isAnnotateMode, leftEditor, syncLeftContent]);
 
-  // Blur handler: sync leftContent when the ProseMirror view loses focus.
   useEffect(() => {
     if (!leftEditor) return;
     const onBlur = () => syncLeftContent(leftEditor);
@@ -542,12 +183,11 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
     leftEditor.chain().focus().setAnnotation(id, currentCount + 1).run();
   }, [leftEditor]);
 
-  // 设置右侧批注区"标注本体"（.annotation-word）的字号，与注释内容字号分开控制。
   const handleSetAnnotationFontSize = useCallback((id: string, size: string) => {
     const base = pageRef.current;
     const annotations = (base.annotations || []).map(a => a.id === id ? { ...a, fontSize: size } : a);
-    onUpdate({ ...base, annotations });
-  }, [onUpdate]);
+    onUpdateRef.current({ ...base, annotations });
+  }, []);
 
   useEffect(() => {
     if (leftEditor) {
@@ -555,70 +195,66 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
     }
   }, [isAnnotateMode, leftEditor]);
 
-  // Called from CommentEditor — writes to local state only, no global cascade.
-  // Trailing debounce: flush to global state 1500ms after last keystroke for autosave.
+  // Update comment via single authoritative pipeline
   const updateComment = useCallback((id: string, html: string) => {
-    localCommentsRef.current[id] = html;
+    const currentPageId = activePageIdRef.current;
+    if (!localCommentsByPageRef.current[currentPageId]) {
+      localCommentsByPageRef.current[currentPageId] = {};
+    }
+    localCommentsByPageRef.current[currentPageId][id] = html;
     setRenderTick(t => t + 1);
 
-    if (localFlushTimeoutRef.current) clearTimeout(localFlushTimeoutRef.current);
-    localFlushTimeoutRef.current = setTimeout(() => {
-      syncLocalComments();
-    }, 1500);
-  }, [syncLocalComments]);
+    if (commentDebounceRef.current) clearTimeout(commentDebounceRef.current);
+    commentDebounceRef.current = setTimeout(() => {
+      if (leftEditor) {
+        flushAllRef.current(leftEditor);
+      } else {
+        const pending = localCommentsByPageRef.current[currentPageId];
+        if (pending && Object.keys(pending).length > 0) {
+          const baseAnns = pageRef.current.annotations || [];
+          const merged = baseAnns.map(ann => ({
+            ...ann,
+            comment: ann.id in pending ? pending[ann.id] : ann.comment,
+          }));
+          onUpdateRef.current({ ...pageRef.current, annotations: merged });
+          delete localCommentsByPageRef.current[currentPageId];
+        }
+      }
+    }, 200);
+  }, [leftEditor]);
 
-  // Flush local comments on unmount (so autosave captures last edits) and
-  // clear pending timers so they can't fire against a destroyed editor.
+  // Unmount cleanup: flush everything immediately
   useEffect(() => {
     return () => {
-      syncLocalComments();
+      const currentPageId = activePageIdRef.current;
+      const pending = localCommentsByPageRef.current[currentPageId];
+      if (pending && Object.keys(pending).length > 0) {
+        const baseAnns = pageRef.current.annotations || [];
+        const merged = baseAnns.map(ann => ({
+          ...ann,
+          comment: ann.id in pending ? pending[ann.id] : ann.comment,
+        }));
+        onUpdateRef.current({ ...pageRef.current, annotations: merged });
+        delete localCommentsByPageRef.current[currentPageId];
+      }
       if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
-      if (localFlushTimeoutRef.current) clearTimeout(localFlushTimeoutRef.current);
+      if (commentDebounceRef.current) clearTimeout(commentDebounceRef.current);
+      if (periodicSyncRef.current) clearInterval(periodicSyncRef.current);
     };
-  }, [syncLocalComments]);
+  }, []);
 
   const handleRemoveAnnotation = useCallback((id: string) => {
     if (!leftEditor) return;
     leftEditor.chain().unsetAnnotation(id).run();
-    if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
-    if (localFlushTimeoutRef.current) clearTimeout(localFlushTimeoutRef.current);
-    delete localCommentsRef.current[id];
-    flushAnnotations(leftEditor);
-  }, [leftEditor, flushAnnotations]);
-
-  if (!leftEditor) return null;
-
-  const ratio = page.splitRatio || 64;
-
-  const getThemeCSS = (theme: string = 'highlight') => {
-    switch (theme) {
-      case 'underline':
-        return `
-          text-decoration: underline;
-          text-decoration-color: #3b82f6;
-          text-decoration-thickness: 2px;
-          text-underline-offset: 4px;
-          background-color: transparent;
-        `;
-      case 'both':
-        return `
-          text-decoration: underline;
-          text-decoration-color: #3b82f6;
-          text-decoration-thickness: 2px;
-          text-underline-offset: 4px;
-          background-color: #eff6ff;
-        `;
-      case 'highlight':
-      default:
-        return `
-          text-decoration: none;
-          background-color: #eff6ff;
-        `;
+    const currentPageId = activePageIdRef.current;
+    if (localCommentsByPageRef.current[currentPageId]) {
+      delete localCommentsByPageRef.current[currentPageId][id];
     }
-  };
+    flushAll(leftEditor);
+  }, [leftEditor, flushAll]);
 
   const handleChange = (field: keyof PageData, value: any) => {
-    onUpdate({ ...pageRef.current, [field]: value });
+    onUpdateRef.current({ ...pageRef.current, [field]: value });
   };
 
   const handleToggleTheme = useCallback(() => {
@@ -626,15 +262,17 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
     const current = page.annotationTheme || 'highlight';
     const next = themes[(themes.indexOf(current) + 1) % themes.length];
     handleChange('annotationTheme', next);
-  }, [page.annotationTheme, handleChange]);
+  }, [page.annotationTheme]);
 
   const handleToggleStyle = useCallback(() => {
     handleChange('annotationStyle', page.annotationStyle === 'single' ? 'dual' : 'single');
-  }, [page.annotationStyle, handleChange]);
+  }, [page.annotationStyle]);
 
   const handleToggleSeq = useCallback(() => {
     handleChange('hideAnnotationSeq', !page.hideAnnotationSeq);
-  }, [page.hideAnnotationSeq, handleChange]);
+  }, [page.hideAnnotationSeq]);
+
+  if (!leftEditor) return null;
 
   return (
     <section className="space-y-6">
@@ -645,151 +283,83 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
       <div className="flex flex-col gap-6">
         {/* Main Article (Top) */}
         <div className="space-y-2 flex flex-col min-w-0">
-          <div className="flex flex-wrap items-center gap-1 p-1.5 bg-slate-100 rounded-lg shadow-inner">
-            <div className="flex bg-slate-200 p-0.5 rounded mr-2">
-              <button
-                onClick={() => setIsAnnotateMode(false)}
-                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${!isAnnotateMode ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                Edit Article
-              </button>
-              <button
-                onClick={() => setIsAnnotateMode(true)}
-                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${isAnnotateMode ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                Annotate
-              </button>
+          <ArticleToolbar
+            editor={leftEditor}
+            isAnnotateMode={isAnnotateMode}
+            onSetAnnotateMode={setIsAnnotateMode}
+            onAddAnchor={handleAddAnchor}
+            onToggleTheme={handleToggleTheme}
+            onToggleSeq={handleToggleSeq}
+            annotationTheme={page.annotationTheme}
+            hideAnnotationSeq={page.hideAnnotationSeq}
+            customFonts={customFonts}
+          />
+
+          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white focus-within:ring-2 focus-within:ring-[#264376] flex flex-col min-h-[300px] relative">
+            <div className="bg-slate-50 text-[10px] uppercase font-bold text-slate-400 p-2 border-b flex justify-between items-center">
+              <span>Main Article</span>
             </div>
 
-            <ToolbarButton
-              onClick={() => leftEditor.chain().focus().toggleBlockquote().run()}
-              isActive={leftEditor.isActive('blockquote')}
-              icon={Quote}
-              title={leftEditor.isActive('blockquote') ? 'Remove emphasis from this paragraph' : 'Emphasize this paragraph (blockquote style)'}
-              isAction={leftEditor.isActive('blockquote')}
-            />
-            <div className="w-px h-4 bg-slate-300 mx-1" />
-            <ToolbarButton
-              onClick={handleAddAnchor}
-              icon={LinkIcon}
-              title={isAnnotateMode ? 'Link to Comment (Creates Note on Right)' : 'Switch to Annotate mode to create a comment'}
-              isAction={true}
-              disabled={!isAnnotateMode}
-            />
-            <div className="w-px h-4 bg-slate-300 mx-1" />
-            <ToolbarButton onClick={handleToggleTheme} icon={Paintbrush} title={`Theme: ${page.annotationTheme || 'highlight'}`} />
-            <ToolbarButton onClick={handleToggleSeq} isActive={!page.hideAnnotationSeq} icon={Hash} title={page.hideAnnotationSeq ? 'Show Numbers' : 'Hide Numbers'} />
-
-            <div className="w-px h-4 bg-slate-300 mx-1" />
-            <ToolbarButton
-              onClick={() => leftEditor.chain().focus().toggleBold().run()}
-              isActive={leftEditor.isActive('bold')}
-              icon={Bold}
-              title="Bold"
-            />
-            <ToolbarButton
-              onClick={() => leftEditor.chain().focus().toggleItalic().run()}
-              isActive={leftEditor.isActive('italic')}
-              icon={Italic}
-              title="Italic"
-            />
-            <div className="w-px h-4 bg-slate-300 mx-1" />
-            <select
-              value={leftEditor.getAttributes('textStyle').fontSize || ''}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v) leftEditor.chain().focus().setFontSize(v).run();
-                else leftEditor.chain().focus().unsetFontSize().run();
+            <BubbleMenu
+              editor={leftEditor}
+              options={{ placement: 'top', offset: 5 }}
+              className="flex items-center gap-1 bg-white border border-slate-200 shadow-xl rounded-lg p-1.5 z-50"
+              shouldShow={({ editor, state }) => {
+                const { from, to } = state.selection;
+                if (editor.isActive('annotationMark')) return false;
+                if (editor.isEditable) return false;
+                if (from !== to) return true;
+                if (from < 0 || from >= state.doc.content.size) return false;
+                const $pos = state.doc.resolve(from);
+                return $pos.parent.type.name === 'paragraph' && $pos.parent.textContent.length > 0;
               }}
-              className="text-xs px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#264376]/20 cursor-pointer"
-              title="Font size"
             >
-              <option value="">Size</option>
-              <option value="12px">12</option>
-              <option value="14px">14</option>
-              <option value="16px">16</option>
-              <option value="18px">18</option>
-              <option value="20px">20</option>
-              <option value="24px">24</option>
-            </select>
-            <select
-              value={leftEditor.getAttributes('textStyle').fontFamily || ''}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v) leftEditor.chain().focus().setFontFamily(v).run();
-                else leftEditor.chain().focus().unsetFontFamily().run();
-              }}
-              className="text-xs px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#264376]/20 cursor-pointer max-w-[150px]"
-              title="Font family"
-            >
-              <option value="">Font</option>
-              <option value="'Inter', sans-serif">Inter</option>
-              <option value="'Crimson Pro', serif">Crimson Pro</option>
-              <option value="'Noto Serif SC', serif">Noto Serif SC</option>
-              {customFonts.map(f => (
-                <option key={f.family} value={f.family}>{f.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white focus-within:ring-2 focus-within:ring-[#264376] flex flex-col min-h-[300px] relative">
-             <div className="bg-slate-50 text-[10px] uppercase font-bold text-slate-400 p-2 border-b flex justify-between items-center">
-               <span>Main Article</span>
-             </div>
+              <button
+                onClick={handleAddAnchor}
+                className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded"
+              >
+                <LinkIcon size={14} /> Cite
+              </button>
+            </BubbleMenu>
 
-             {leftEditor && (
-               <BubbleMenu
-                 editor={leftEditor}
-                 options={{ placement: 'top', offset: 5 }}
-                 className="flex items-center gap-1 bg-white border border-slate-200 shadow-xl rounded-lg p-1.5 z-50"
-                 shouldShow={({ editor, state }) => {
-                   const { from, to } = state.selection;
-                   if (editor.isActive('annotationMark')) return false;
-                   if (editor.isEditable) return false;
-                   if (from !== to) return true;
-                   if (from < 0 || from >= state.doc.content.size) return false;
-                   const $pos = state.doc.resolve(from);
-                   return $pos.parent.type.name === 'paragraph'
-                     && $pos.parent.textContent.length > 0;
-                 }}
-               >
-                 <button
-                   onClick={handleAddAnchor}
-                   className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded"
-                 >
-                   <LinkIcon size={14} /> Cite
-                 </button>
-               </BubbleMenu>
-             )}
-
-             <EditorContent editor={leftEditor} className="p-4 prose max-w-none focus:outline-none flex-1 overflow-y-auto" />
+            <EditorContent editor={leftEditor} className="p-4 prose max-w-none focus:outline-none flex-1 overflow-y-auto" />
           </div>
         </div>
 
         {/* Comments (Bottom) */}
         <div className="space-y-2 flex flex-col min-w-0">
-          <div className="flex flex-wrap items-center gap-1 p-1.5 bg-slate-100 rounded-lg shadow-inner justify-end">
-            <ToolbarButton onClick={handleToggleStyle} icon={AlignLeft} title={`Style: ${page.annotationStyle === 'single' ? 'Single Line' : 'Dual Line'}`} />
-          </div>
+          <CommentsToolbar
+            annotationStyle={page.annotationStyle}
+            onToggleStyle={handleToggleStyle}
+          />
           <div className={`border border-slate-200 rounded-xl overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:ring-[#264376] flex flex-col min-h-[300px] ${page.annotationStyle === 'single' ? 'annotation-style-single' : ''}`}>
-             <div className="bg-white text-[10px] uppercase font-bold text-slate-400 p-2 border-b flex justify-between items-center shadow-sm z-10">
-               <span>Comments</span>
-             </div>
-             <div className="p-4 flex-1 overflow-y-auto">
-               {activeAnnotations.length === 0 ? (
-                 <div className="text-sm text-slate-400 italic text-center mt-10">Select a word in the main article to add a comment...</div>
-               ) : (
-                 activeAnnotations.map(ann => (
-                   <CommentEditor key={ann.id} annotation={ann} onUpdate={updateComment} onRemove={handleRemoveAnnotation} hideSeq={page.hideAnnotationSeq} customFonts={customFonts} onSetAnnotationFontSize={handleSetAnnotationFontSize} />
-                 ))
-               )}
-             </div>
+            <div className="bg-white text-[10px] uppercase font-bold text-slate-400 p-2 border-b flex justify-between items-center shadow-sm z-10">
+              <span>Comments</span>
+            </div>
+            <div className="p-4 flex-1 overflow-y-auto">
+              {activeAnnotations.length === 0 ? (
+                <div className="text-sm text-slate-400 italic text-center mt-10">Select a word in the main article to add a comment...</div>
+              ) : (
+                activeAnnotations.map(ann => (
+                  <CommentEditor
+                    key={ann.id}
+                    annotation={ann}
+                    onUpdate={updateComment}
+                    onRemove={handleRemoveAnnotation}
+                    hideSeq={page.hideAnnotationSeq}
+                    customFonts={customFonts}
+                    onSetAnnotationFontSize={handleSetAnnotationFontSize}
+                  />
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       <style>{`
         .ProseMirror mark[data-annotation-id] {
-          ${getThemeCSS(page.annotationTheme)}
+          ${getAnnotationThemeCSS(page.annotationTheme)}
           cursor: pointer;
           transition: all 0.2s;
           position: relative;

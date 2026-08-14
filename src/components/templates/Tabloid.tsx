@@ -1,19 +1,12 @@
 import React from 'react';
-import { PageData } from '../../types';
+import { TemplateProps } from '../../types';
 import AutoFitHeadline from '../AutoFitHeadline';
 import { formatMagazineText } from '../../utils/formatter';
 import { FooterDisplay } from './SharedComponents';
-
-interface TemplateProps {
-  page: PageData;
-  pageIndex: number;
-  totalPages: number;
-}
+import { getImagePositionStyles } from '../../utils/imageUtils';
 
 export default function Tabloid({ page, pageIndex, totalPages }: TemplateProps) {
-  const config = page.imageConfig || { scale: 1, x: 0, y: 0, height: 500 };
-  const posX = 50 - (config.x / 2);
-  const posY = 50 - (config.y / 2);
+  const { transform, objectPosition } = getImagePositionStyles(page.imageConfig, 500);
 
   // Extract magazine name from byline
   const magName = (page.byline || "").includes('|') 
@@ -21,7 +14,7 @@ export default function Tabloid({ page, pageIndex, totalPages }: TemplateProps) 
     : 'MAGA NEWS';
 
   return (
-    <div className="w-full h-full flex flex-col font-sans overflow-hidden">
+    <div className="w-full h-full flex flex-col font-sans overflow-hidden" style={{ backgroundColor: page.backgroundColor || '#ffffff' }}>
       <div className="flex-1 flex flex-col">
         {/* Red Header Bar */}
         <div className="bg-[#e21f26] text-white p-4 flex justify-between items-center relative z-20">
@@ -42,9 +35,10 @@ export default function Tabloid({ page, pageIndex, totalPages }: TemplateProps) 
                 src={page.image} 
                 className="w-full h-full object-cover" 
                 style={{
-                  transform: `scale(${config.scale})`,
-                  objectPosition: `${posX}% ${posY}%`,
+                  transform,
+                  objectPosition,
                 }}
+                alt="Tabloid cover"
               />
             )}
             <div className="absolute top-6 left-[-10px] bg-[#e21f26] text-white px-8 py-2 font-black text-2xl uppercase tracking-tighter transform rotate-[-5deg] shadow-xl border-2 border-white">
@@ -83,7 +77,10 @@ export default function Tabloid({ page, pageIndex, totalPages }: TemplateProps) 
           {/* Byline */}
           <div className="mt-8 flex items-center gap-3 relative z-10">
             <span className="bg-black text-white px-2 py-1 text-[10px] font-black uppercase tracking-widest">Reporter</span>
-            <span className="text-sm font-bold uppercase border-b-2 border-black tracking-tight text-slate-900 whitespace-pre-wrap">
+            <span
+              className="text-sm font-bold uppercase border-b-2 border-black tracking-tight text-slate-900 whitespace-pre-wrap"
+              style={{ fontFamily: page.bylineFont || "'Inter', sans-serif" }}
+            >
               {formatMagazineText(page.byline || "")}
             </span>
           </div>

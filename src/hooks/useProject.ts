@@ -1,11 +1,12 @@
-import { useReducer, useEffect, useCallback } from 'react';
-import { PageData, CustomFont, ProjectData, PageType, PageSize } from '../types';
+import { useReducer, useEffect, useCallback, useRef } from 'react';
+import { PageData, CustomFont, PageType, PageSize } from '../types';
 import { getProject, saveProject } from '../utils/db';
 import { toPng } from 'html-to-image';
 import { useUI } from '../context/UIContext';
 import { createPageFromTemplate, getTemplateSpec } from '../state/pageFactory';
 import { createInitialProjectState, getCurrentPage, getCurrentPageIndex, projectReducer } from '../state/projectStore';
 import { assertProjectStateConsistency } from '../state/regressionChecks';
+import { serializeProject, exportProjectFile, parseProjectFile } from '../utils/projectSerializer';
 
 export const registerFontInDOM = (family: string, dataUrl: string) => {
   if (document.getElementById(`style-${family}`)) return;
@@ -24,9 +25,18 @@ export function useProject(projectId: string | undefined, templateId: string | n
   const { alert, confirm } = useUI();
   const [state, dispatch] = useReducer(projectReducer, undefined, createInitialProjectState);
 
-  const { pages, customFonts, pageSize, isLoaded, currentPageId } = state;
+  const { pages, customFonts, pageSize, isLoaded, currentPageId, dirty } = state;
   const currentPageIndex = getCurrentPageIndex(pages, currentPageId);
   const currentPage = getCurrentPage(pages, currentPageId);
+
+  const customFontsRef = useRef(customFonts);
+  customFontsRef.current = customFonts;
+
+  const pagesRef = useRef(pages);
+  pagesRef.current = pages;
+
+  const currentPageRef = useRef(currentPage);
+  currentPageRef.current = currentPage;
 
   useEffect(() => {
     if (!isLoaded || !import.meta.env.DEV) return;
@@ -61,7 +71,7 @@ export function useProject(projectId: string | undefined, templateId: string | n
 
       const templateSpec = getTemplateSpec(templateId);
       const initialPage = createPageFromTemplate({
-        templateId: templateSpec?.layoutId || templateId || 'classic-cover',
+        templateId: templateSpec?.id || templateId || 'classic-cover',
       });
 
       dispatch({
@@ -82,20 +92,31 @@ export function useProject(projectId: string | undefined, templateId: string | n
   }, []);
 
   const setCurrentPageIndex = useCallback((index: number) => {
-    const clamped = Math.max(0, Math.min(index, pages.length - 1));
-    const target = pages[clamped];
+    const currentPages = pagesRef.current;
+    const clamped = Math.max(0, Math.min(index, currentPages.length - 1));
+    const target = currentPages[clamped];
     if (target) {
       dispatch({ type: 'SET_CURRENT_PAGE', payload: { pageId: target.id } });
     }
-  }, [pages]);
+  }, []);
+
+  const setPages = useCallback((next: PageData[] | ((prev: PageData[]) => PageData[])) => {
+    const resolved = typeof next === 'function' ? next(pagesRef.current) : next;
+    dispatch({
+      type: 'SET_PAGES',
+      payload: {
+        pages: resolved,
+      },
+    });
+  }, []);
 
   const updateCustomFonts = useCallback((update: CustomFont[] | ((prev: CustomFont[]) => CustomFont[])) => {
-    const nextFonts = typeof update === 'function' ? update(customFonts) : update;
+    const nextFonts = typeof update === 'function' ? update(customFontsRef.current) : update;
     nextFonts.forEach(font => {
       if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
     });
     dispatch({ type: 'SET_CUSTOM_FONTS', payload: { customFonts: nextFonts } });
-  }, [customFonts]);
+  }, []);
 
   const setPageSize = useCallback((size: PageSize) => {
     dispatch({ type: 'SET_PAGE_SIZE', payload: { pageSize: size } });
@@ -107,16 +128,18 @@ export function useProject(projectId: string | undefined, templateId: string | n
     let thumbnail = null;
     if (previewRef.current && options?.generateThumbnail) {
       try {
-        const pageEl = previewRef.current.querySelector('.magazine-page') as HTMLElement;
+        const pageEl = previewRef.current.querySelector('.magazine-page-container.block .magazine-page') as HTMLElement
+          || previewRef.current.querySelector('.magazine-page') as HTMLElement;
         if (pageEl) {
+          const currentBg = currentPageRef.current?.backgroundColor || pages[0]?.backgroundColor || '#FAF9F4';
           thumbnail = await toPng(pageEl, {
             pixelRatio: 0.2,
             quality: 0.5,
-            backgroundColor: pages[0]?.backgroundColor || '#FAF9F4',
+            backgroundColor: currentBg,
           });
         }
       } catch (e) {
-        console.error('Thumb failed', e);
+        console.error('Thumbnail generation failed', e);
       }
     }
 
@@ -130,10 +153,18 @@ export function useProject(projectId: string | undefined, templateId: string | n
 
     await saveProject(projectId, projectState);
 
-    const indexSaved = localStorage.getItem('magazine_recent_projects');
-    let index = indexSaved ? JSON.parse(indexSaved) : [];
+    let index: any[] = [];
+    try {
+      const indexSaved = localStorage.getItem('magazine_recent_projects');
+      if (indexSaved) {
+        index = JSON.parse(indexSaved);
+        if (!Array.isArray(index)) index = [];
+      }
+    } catch {
+      index = [];
+    }
 
-    const existingIdx = index.findIndex((p: any) => p.id === projectId);
+    const existingIdx = index.findIndex((p: any) => p && p.id === projectId);
 
     if (!thumbnail && existingIdx > -1) {
       thumbnail = index[existingIdx].thumbnail;
@@ -153,7 +184,11 @@ export function useProject(projectId: string | undefined, templateId: string | n
       index.unshift(projectSummary);
     }
 
-    localStorage.setItem('magazine_recent_projects', JSON.stringify(index.slice(0, 12)));
+    try {
+      localStorage.setItem('magazine_recent_projects', JSON.stringify(index.slice(0, 12)));
+    } catch {
+      // Ignore localStorage storage full errors
+    }
   }, [pages, customFonts, pageSize, projectId, isLoaded]);
 
   const updatePage = useCallback((updatedPageInput: PageData) => {
@@ -162,7 +197,7 @@ export function useProject(projectId: string | undefined, templateId: string | n
       payload: {
         pageId: updatedPageInput.id,
         updater: (originalPage) => {
-          const updatedPage: PageData = { ...updatedPageInput };
+          const updatedPage: PageData = { ...originalPage, ...updatedPageInput };
 
           if (updatedPage.type !== originalPage.type) {
             if (updatedPage.type === 'article') {
@@ -183,23 +218,7 @@ export function useProject(projectId: string | undefined, templateId: string | n
             }
           }
 
-          const carryFields: Array<keyof PageData> = [
-            'titleEnFont', 'titleZhFont', 'bylineFont', 'quoteEnFont', 'quoteZhFont',
-            'footerFont', 'paragraphEnFont', 'paragraphZhFont', 'footnoteFont',
-            'backgroundColor', 'accentColor', 'splitRatio', 'fontBalance',
-            'footerSwap', 'footerRightType', 'footerLogo', 'footerLogoSize', 'footerRightX', 'footerRightY',
-            'logoX', 'logoY', 'annotationTheme', 'annotationStyle', 'hideAnnotationSeq',
-          ];
-
-          const merged: PageData = { ...originalPage, ...updatedPage };
-          carryFields.forEach(field => {
-            if (updatedPage[field] !== undefined) {
-              // @ts-ignore
-              merged[field] = updatedPage[field];
-            }
-          });
-
-          return merged;
+          return updatedPage;
         },
       },
     });
@@ -245,22 +264,8 @@ export function useProject(projectId: string | undefined, templateId: string | n
   const handleExportProject = useCallback(() => {
     setTimeout(() => {
       try {
-        const project: ProjectData = {
-          version: '1.0',
-          pages,
-          customFonts,
-          settings: { pageSize }
-        };
-        const json = JSON.stringify(project);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `project-${new Date().toISOString().slice(0, 10)}.wdzmaga`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        const project = serializeProject(pages, customFonts, pageSize);
+        exportProjectFile(project);
       } catch (e) {
         console.error('Export failed', e);
         alert('导出失败', '打包项目数据时出错。');
@@ -268,46 +273,32 @@ export function useProject(projectId: string | undefined, templateId: string | n
     }, 100);
   }, [pages, customFonts, pageSize, alert]);
 
-  const handleImportProject = useCallback((file: File) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const project: ProjectData = JSON.parse(event.target?.result as string);
-        (project.customFonts || []).forEach(font => {
-          if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
-        });
+  const handleImportProject = useCallback(async (file: File) => {
+    try {
+      const project = await parseProjectFile(file);
+      (project.customFonts || []).forEach(font => {
+        if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
+      });
 
-        dispatch({
-          type: 'LOAD_PROJECT',
-          payload: {
-            pages: project.pages || [createPageFromTemplate({ templateId: 'classic-cover' })],
-            customFonts: project.customFonts || [],
-            pageSize: project.settings?.pageSize || 'A4',
-          },
-        });
+      dispatch({
+        type: 'LOAD_PROJECT',
+        payload: {
+          pages: project.pages || [createPageFromTemplate({ templateId: 'classic-cover' })],
+          customFonts: project.customFonts || [],
+          pageSize: project.settings?.pageSize || 'A4',
+        },
+      });
 
-        alert('导入成功', '项目数据及自定义字体已全部加载。');
-      } catch (err) {
-        console.error('Import failed:', err);
-        alert('导入失败', '文件格式无效或已损坏。');
-      }
-    };
-    reader.readAsText(file);
+      alert('导入成功', '项目数据及自定义字体已全部加载。');
+    } catch (err: any) {
+      console.error('Import failed:', err);
+      alert('导入失败', err.message || '文件格式无效或已损坏。');
+    }
   }, [alert]);
 
   return {
     pages,
-    setPages: (next: PageData[] | ((prev: PageData[]) => PageData[])) => {
-      const resolved = typeof next === 'function' ? next(pages) : next;
-      dispatch({
-        type: 'LOAD_PROJECT',
-        payload: {
-          pages: resolved,
-          customFonts,
-          pageSize,
-        },
-      });
-    },
+    setPages,
     currentPageId,
     setCurrentPageId,
     currentPageIndex,
@@ -318,6 +309,7 @@ export function useProject(projectId: string | undefined, templateId: string | n
     pageSize,
     setPageSize,
     isLoaded,
+    dirty,
     updatePage,
     addPage,
     removePage,

@@ -1,34 +1,38 @@
 import React from 'react';
-import { PageData } from '../../types';
+import { TemplateProps } from '../../types';
 import AutoFitHeadline from '../AutoFitHeadline';
 import { formatMagazineText } from '../../utils/formatter';
 import { FooterDisplay } from './SharedComponents';
-
-interface TemplateProps {
-  page: PageData;
-  pageIndex: number;
-  totalPages: number;
-}
-
-function getBrightness(hex: string) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000;
-}
+import { isDarkColor } from '../../utils/colorUtils';
+import { getImagePositionStyles } from '../../utils/imageUtils';
 
 export default function Typography({ page, pageIndex, totalPages }: TemplateProps) {
   const bgColor = page.backgroundColor || '#020617';
-  const isDark = getBrightness(bgColor) < 128;
+  const isDark = isDarkColor(bgColor);
   
   const accentColor = page.accentColor || '#367237';
   const baseTextColor = isDark ? 'text-white' : 'text-slate-900';
   const labelMutedColor = isDark ? 'text-white/30' : 'text-slate-400';
   const navBorderColor = isDark ? 'border-white/10' : 'border-slate-200';
 
+  const { transform, objectPosition } = getImagePositionStyles(page.imageConfig, 500);
+
   return (
     <div className="w-full h-full flex flex-col font-sans relative overflow-hidden" style={{ backgroundColor: bgColor }}>
-      <div className={`flex-1 flex flex-col p-12 justify-between ${baseTextColor}`}>
+      {/* Background Image Layer if image provided */}
+      {page.image && (
+        <div className="absolute inset-0 z-0 pointer-events-none opacity-20 overflow-hidden">
+          <img
+            src={page.image}
+            alt="Background typography visual"
+            className="w-full h-full object-cover filter grayscale contrast-125"
+            style={{ transform, objectPosition }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
+        </div>
+      )}
+
+      <div className={`flex-1 flex flex-col p-12 justify-between ${baseTextColor} relative z-10`}>
         {/* Subtle Grain/Noise Overlay */}
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('/stardust.png')]" />
 
@@ -85,8 +89,22 @@ export default function Typography({ page, pageIndex, totalPages }: TemplateProp
               <div className="space-y-2">
                 <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: accentColor, opacity: 0.8 }}>Abstract_Context</span>
                 <div className={`space-y-2 line-clamp-4 ${isDark ? 'text-white/50' : 'text-slate-500'}`}>
-                  {page.quoteEn && <p className="text-xs font-medium leading-relaxed whitespace-pre-wrap">{formatMagazineText(page.quoteEn)}</p>}
-                  {page.quoteZh && <p className="text-xs font-bold leading-relaxed whitespace-pre-wrap">{formatMagazineText(page.quoteZh)}</p>}
+                  {page.quoteEn && (
+                    <p
+                      className="text-xs font-medium leading-relaxed whitespace-pre-wrap"
+                      style={{ fontFamily: page.quoteEnFont || "'Inter', sans-serif" }}
+                    >
+                      {formatMagazineText(page.quoteEn)}
+                    </p>
+                  )}
+                  {page.quoteZh && (
+                    <p
+                      className="text-xs font-bold leading-relaxed whitespace-pre-wrap"
+                      style={{ fontFamily: page.quoteZhFont || "'Crimson Pro', serif" }}
+                    >
+                      {formatMagazineText(page.quoteZh)}
+                    </p>
+                  )}
                 </div>
               </div>
             )}

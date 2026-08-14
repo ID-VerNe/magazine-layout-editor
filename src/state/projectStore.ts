@@ -9,8 +9,6 @@ export interface ProjectEditorState {
   pageSize: PageSize;
   isLoaded: boolean;
   dirty: boolean;
-  exportQueue: string[];
-  version: number;
 }
 
 type LoadPayload = {
@@ -32,15 +30,14 @@ type UpdatePagePayload = {
 
 export type ProjectAction =
   | { type: 'LOAD_PROJECT'; payload: LoadPayload }
+  | { type: 'SET_PAGES'; payload: { pages: PageData[] } }
   | { type: 'SET_CURRENT_PAGE'; payload: { pageId: string } }
   | { type: 'SET_CUSTOM_FONTS'; payload: { customFonts: CustomFont[] } }
   | { type: 'SET_PAGE_SIZE'; payload: { pageSize: PageSize } }
   | { type: 'UPDATE_PAGE'; payload: UpdatePagePayload }
   | { type: 'ADD_PAGE'; payload: AddPagePayload }
   | { type: 'REMOVE_PAGE'; payload: { pageId: string } }
-  | { type: 'CLEAR_ALL' }
-  | { type: 'QUEUE_EXPORT'; payload: { pageIds: string[] } }
-  | { type: 'CLEAR_EXPORT_QUEUE' };
+  | { type: 'CLEAR_ALL' };
 
 export const createInitialProjectState = (): ProjectEditorState => {
   const initialPage = createPageFromTemplate({ templateId: 'classic-cover' });
@@ -51,8 +48,6 @@ export const createInitialProjectState = (): ProjectEditorState => {
     pageSize: 'A4',
     isLoaded: false,
     dirty: false,
-    exportQueue: [],
-    version: 1,
   };
 };
 
@@ -71,7 +66,6 @@ const withInvariant = (state: ProjectEditorState, action: string): ProjectEditor
       ...state,
       pages: [fallback],
       currentPageId: fallback.id,
-      version: state.version + 1,
     };
   }
 
@@ -84,7 +78,6 @@ const withInvariant = (state: ProjectEditorState, action: string): ProjectEditor
     return {
       ...state,
       currentPageId: fallbackId,
-      version: state.version + 1,
     };
   }
 
@@ -105,7 +98,18 @@ export function projectReducer(state: ProjectEditorState, action: ProjectAction)
         pageSize: action.payload.pageSize || 'A4',
         isLoaded: true,
         dirty: false,
-        version: state.version + 1,
+      };
+      return withInvariant(next, action.type);
+    }
+
+    case 'SET_PAGES': {
+      const pages = action.payload.pages.length > 0
+        ? action.payload.pages
+        : [createPageFromTemplate({ templateId: 'classic-cover' })];
+      const next: ProjectEditorState = {
+        ...state,
+        pages,
+        dirty: true,
       };
       return withInvariant(next, action.type);
     }
@@ -128,7 +132,6 @@ export function projectReducer(state: ProjectEditorState, action: ProjectAction)
         ...state,
         customFonts: action.payload.customFonts,
         dirty: true,
-        version: state.version + 1,
       };
     }
 
@@ -137,7 +140,6 @@ export function projectReducer(state: ProjectEditorState, action: ProjectAction)
         ...state,
         pageSize: action.payload.pageSize,
         dirty: true,
-        version: state.version + 1,
       };
     }
 
@@ -160,7 +162,6 @@ export function projectReducer(state: ProjectEditorState, action: ProjectAction)
         ...state,
         pages,
         dirty: true,
-        version: state.version + 1,
       }, action.type);
     }
 
@@ -188,7 +189,6 @@ export function projectReducer(state: ProjectEditorState, action: ProjectAction)
         pages,
         currentPageId: page.id,
         dirty: true,
-        version: state.version + 1,
       }, action.type);
     }
 
@@ -198,7 +198,6 @@ export function projectReducer(state: ProjectEditorState, action: ProjectAction)
         ...state,
         pages,
         dirty: true,
-        version: state.version + 1,
       };
 
       if (state.currentPageId === action.payload.pageId) {
@@ -215,28 +214,14 @@ export function projectReducer(state: ProjectEditorState, action: ProjectAction)
         pages: [resetPage],
         currentPageId: resetPage.id,
         pageSize: 'A4',
-        exportQueue: [],
         dirty: true,
-        version: state.version + 1,
       };
     }
 
-    case 'QUEUE_EXPORT': {
-      return {
-        ...state,
-        exportQueue: action.payload.pageIds,
-      };
-    }
-
-    case 'CLEAR_EXPORT_QUEUE': {
-      return {
-        ...state,
-        exportQueue: [],
-      };
-    }
-
-    default:
+    default: {
+      const _exhaustiveCheck: never = action;
       return state;
+    }
   }
 }
 

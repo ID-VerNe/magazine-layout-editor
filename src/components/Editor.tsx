@@ -1,6 +1,7 @@
 import React from 'react';
 import { PageData, CustomFont } from '../types';
 import { AlertTriangle } from 'lucide-react';
+import { getTemplateSections, EditorSectionId } from '../config/templates';
 
 // Import Section Components
 import { LayoutSection } from './editor/sections/LayoutSection';
@@ -22,25 +23,10 @@ interface EditorProps {
   enforceA4?: boolean;
 }
 
-// 定义每个布局需要的组件清单
-const LAYOUT_CONFIG: Record<string, string[]> = {
-  'classic-cover': ['layout', 'image', 'headlines', 'cover-features', 'advanced', 'colors', 'footer'],
-  'impact-bold': ['layout', 'image', 'headlines', 'cover-features', 'colors', 'footer'],
-  'cinematic': ['layout', 'image', 'headlines', 'colors', 'footer'],
-  'blueprint': ['layout', 'image', 'headlines', 'blueprint-stamp', 'cover-features', 'colors', 'footer'],
-  'tabloid': ['layout', 'image', 'headlines', 'advanced', 'colors', 'footer'],
-  'typography': ['layout', 'headlines', 'cover-features', 'colors', 'footer'],
-  'classic-article': ['layout', 'image', 'headlines', 'content', 'advanced', 'colors', 'footer'],
-  'modern-vertical': ['layout', 'image', 'headlines', 'content', 'advanced', 'colors', 'footer'],
-  'blueprint-article': ['layout', 'image', 'headlines', 'content', 'advanced', 'colors', 'footer'],
-  'intensive-reading': ['layout', 'image', 'headlines', 'intensive-content', 'advanced', 'colors', 'footer']
-};
-
 const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflowing, enforceA4 }) => {
-  const currentLayout = page.layoutId || (page.type === 'cover' ? 'classic-cover' : 'classic-article');
-  const activeSections = LAYOUT_CONFIG[currentLayout] || LAYOUT_CONFIG['classic-cover'];
+  const activeSections = getTemplateSections(page.layoutId, page.type);
 
-  const renderSection = (sectionId: string) => {
+  const renderSection = (sectionId: EditorSectionId) => {
     switch (sectionId) {
       case 'layout':
         return <LayoutSection key="layout" page={page} onUpdate={onUpdate} />;

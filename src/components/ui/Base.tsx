@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, forwardRef } from 'react';
 import { Bold, Italic, Underline, Strikethrough } from 'lucide-react';
 
 export const Label = ({ children, icon: Icon, className = "" }: { children: React.ReactNode, icon?: any, className?: string }) => (
@@ -8,20 +8,42 @@ export const Label = ({ children, icon: Icon, className = "" }: { children: Reac
   </label>
 );
 
-export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(({ value, onChange, ...props }, ref) => {
-  const [localValue, setLocalValue] = React.useState(value ?? '');
-  const timeoutRef = React.useRef<NodeJS.Timeout>();
+export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(({ value, onChange, ...props }, ref) => {
+  const [localValue, setLocalValue] = useState(value ?? '');
+  const localValueRef = useRef(value ?? '');
+  const lastFlushedValueRef = useRef(value ?? '');
+  const onChangeRef = useRef(onChange);
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
-  React.useEffect(() => {
-    setLocalValue(value ?? '');
+  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    const val = value ?? '';
+    setLocalValue(val);
+    localValueRef.current = val;
+    lastFlushedValueRef.current = val;
   }, [value]);
+
+  // Flush pending debounced value on unmount to prevent data loss
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      if (localValueRef.current !== lastFlushedValueRef.current && onChangeRef.current) {
+        onChangeRef.current({ target: { value: localValueRef.current } } as React.ChangeEvent<HTMLInputElement>);
+      }
+    };
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setLocalValue(val);
+    localValueRef.current = val;
     if (onChange) {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => {
+        lastFlushedValueRef.current = val;
         onChange({ target: { value: val } } as React.ChangeEvent<HTMLInputElement>);
       }, 300);
     }
@@ -39,23 +61,45 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
 });
 Input.displayName = 'Input';
 
-export const TextArea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(({ value, onChange, onFocus, onBlur, ...props }, ref) => {
+export const TextArea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(({ value, onChange, onFocus, onBlur, ...props }, ref) => {
   const [isFocused, setIsFocused] = useState(false);
-  const internalRef = React.useRef<HTMLTextAreaElement>(null);
+  const internalRef = useRef<HTMLTextAreaElement>(null);
   
-  const [localValue, setLocalValue] = React.useState(value ?? '');
-  const timeoutRef = React.useRef<NodeJS.Timeout>();
+  const [localValue, setLocalValue] = useState(value ?? '');
+  const localValueRef = useRef(value ?? '');
+  const lastFlushedValueRef = useRef(value ?? '');
+  const onChangeRef = useRef(onChange);
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
-  React.useEffect(() => {
-    setLocalValue(value ?? '');
+  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    const val = value ?? '';
+    setLocalValue(val);
+    localValueRef.current = val;
+    lastFlushedValueRef.current = val;
   }, [value]);
+
+  // Flush pending debounced value on unmount to prevent data loss
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      if (localValueRef.current !== lastFlushedValueRef.current && onChangeRef.current) {
+        onChangeRef.current({ target: { value: localValueRef.current } } as React.ChangeEvent<HTMLTextAreaElement>);
+      }
+    };
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setLocalValue(val);
+    localValueRef.current = val;
     if (onChange) {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => {
+        lastFlushedValueRef.current = val;
         onChange({ target: { value: val } } as React.ChangeEvent<HTMLTextAreaElement>);
       }, 300);
     }
@@ -75,9 +119,11 @@ export const TextArea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
     const newValue = `${before}${prefix}${selected}${suffix}${after}`;
     
     setLocalValue(newValue);
+    localValueRef.current = newValue;
     if (onChange) {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => {
+        lastFlushedValueRef.current = newValue;
         onChange({ target: { value: newValue } } as React.ChangeEvent<HTMLTextAreaElement>);
       }, 300);
     }
