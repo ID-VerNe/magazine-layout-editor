@@ -35,7 +35,7 @@ export const FormFieldWithFont: React.FC<FormFieldWithFontProps> = ({
   return (
     <div className={`space-y-2 ${className}`}>
       <div className="flex justify-between items-end gap-2">
-        <span className="text-[10px] text-slate-400 font-bold uppercase">{label}</span>
+        <span className="text-[10px] text-slate-500 font-bold uppercase">{label}</span>
         <div className={fontSelectWidth}>
           <FontSelect
             customFonts={customFonts}

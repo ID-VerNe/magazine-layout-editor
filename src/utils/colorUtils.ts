@@ -33,3 +33,15 @@ export function getBrightness(hex: string): number {
 export function isDarkColor(hex: string): boolean {
   return getBrightness(hex) < 128;
 }
+
+/**
+ * Converts a hex color to an rgba() string with the specified alpha (0 to 1).
+ */
+export function hexToRgba(hex: string, alpha: number = 1): string {
+  const cleanHex = normalizeHex(hex);
+  const r = parseInt(cleanHex.slice(0, 2), 16) || 0;
+  const g = parseInt(cleanHex.slice(2, 4), 16) || 0;
+  const b = parseInt(cleanHex.slice(4, 6), 16) || 0;
+  const clampedAlpha = Math.max(0, Math.min(1, alpha));
+  return `rgba(${r}, ${g}, ${b}, ${clampedAlpha})`;
+}

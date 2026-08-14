@@ -29,30 +29,38 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     >
       <div className="h-16 px-6 border-b border-neutral-100 bg-white flex justify-between items-center shrink-0">
         <h2 className="font-bold text-slate-800 flex items-center gap-2">
-          <Type size={18} className="text-slate-400" />
+          <Type size={18} className="text-[#264376]" aria-hidden="true" />
           Editor
         </h2>
         <button 
+          type="button"
           onClick={() => onRemovePage(currentPage.id)} 
-          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
           title="Delete page"
+          aria-label="Delete page"
         >
-          <Trash2 size={18} />
+          <Trash2 size={18} aria-hidden="true" />
         </button>
       </div>
       
       <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar">
         {/* Segmented Control Switcher */}
-        <div className="bg-slate-100 p-1 rounded-lg flex text-xs font-black uppercase tracking-widest">
+        <div role="radiogroup" aria-label="Page type selection" className="bg-slate-100 p-1 rounded-lg flex text-xs font-black uppercase tracking-widest">
           <button
+            type="button"
+            role="radio"
+            aria-checked={currentPage.type === 'cover'}
             onClick={() => onUpdatePage({ ...currentPage, type: 'cover' })}
-            className={`flex-1 py-2 px-3 rounded-md transition-all ${currentPage.type === 'cover' ? 'bg-[#264376] text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+            className={`flex-1 py-2 px-3 rounded-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376] ${currentPage.type === 'cover' ? 'bg-[#264376] text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
           >
             Cover
           </button>
           <button
+            type="button"
+            role="radio"
+            aria-checked={currentPage.type === 'article'}
             onClick={() => onUpdatePage({ ...currentPage, type: 'article' })}
-            className={`flex-1 py-2 px-3 rounded-md transition-all ${currentPage.type === 'article' ? 'bg-[#264376] text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
+            className={`flex-1 py-2 px-3 rounded-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376] ${currentPage.type === 'article' ? 'bg-[#264376] text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
           >
             Article
           </button>

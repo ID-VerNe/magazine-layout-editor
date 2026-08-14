@@ -296,7 +296,7 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
           />
 
           <div className="border border-slate-200 rounded-xl overflow-hidden bg-white focus-within:ring-2 focus-within:ring-[#264376] flex flex-col min-h-[300px] relative">
-            <div className="bg-slate-50 text-[10px] uppercase font-bold text-slate-400 p-2 border-b flex justify-between items-center">
+            <div className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 p-2 border-b flex justify-between items-center">
               <span>Main Article</span>
             </div>
 
@@ -315,10 +315,12 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
               }}
             >
               <button
+                type="button"
                 onClick={handleAddAnchor}
-                className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded"
+                aria-label="Cite selection"
+                className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-[#264376] hover:bg-slate-100 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376]"
               >
-                <LinkIcon size={14} /> Cite
+                <LinkIcon size={14} aria-hidden="true" /> Cite
               </button>
             </BubbleMenu>
 
@@ -333,12 +335,12 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
             onToggleStyle={handleToggleStyle}
           />
           <div className={`border border-slate-200 rounded-xl overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:ring-[#264376] flex flex-col min-h-[300px] ${page.annotationStyle === 'single' ? 'annotation-style-single' : ''}`}>
-            <div className="bg-white text-[10px] uppercase font-bold text-slate-400 p-2 border-b flex justify-between items-center shadow-sm z-10">
+            <div className="bg-white text-[10px] uppercase font-bold text-slate-500 p-2 border-b flex justify-between items-center shadow-sm z-10">
               <span>Comments</span>
             </div>
             <div className="p-4 flex-1 overflow-y-auto">
               {activeAnnotations.length === 0 ? (
-                <div className="text-sm text-slate-400 italic text-center mt-10">Select a word in the main article to add a comment...</div>
+                <div className="text-sm text-slate-500 italic text-center mt-10">Select a word in the main article to add a comment...</div>
               ) : (
                 activeAnnotations.map(ann => (
                   <CommentEditor

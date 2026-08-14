@@ -10,19 +10,43 @@ let dbPromise: Promise<IDBDatabase> | null = null;
 export const openDB = (): Promise<IDBDatabase> => {
   if (dbPromise) return dbPromise;
 
-  dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
+    try {
+      if (typeof indexedDB === 'undefined') {
+        throw new Error('IndexedDB is not supported in this environment');
       }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => {
+
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        }
+      };
+
+      request.onblocked = () => {
+        console.warn('[IndexedDB] Database open request is blocked by another connection');
+        dbPromise = null;
+      };
+
+      request.onsuccess = () => {
+        const db = request.result;
+        db.onversionchange = () => {
+          db.close();
+          dbPromise = null;
+        };
+        resolve(db);
+      };
+
+      request.onerror = () => {
+        dbPromise = null;
+        reject(request.error || new Error('Failed to open IndexedDB'));
+      };
+    } catch (err) {
       dbPromise = null;
-      reject(request.error);
-    };
+      reject(err);
+    }
   });
 
   return dbPromise;

@@ -9,13 +9,24 @@ import { assertProjectStateConsistency } from '../state/regressionChecks';
 import { serializeProject, exportProjectFile, parseProjectFile } from '../utils/projectSerializer';
 
 export const registerFontInDOM = (family: string, dataUrl: string) => {
-  if (document.getElementById(`style-${family}`)) return;
+  if (!family || typeof family !== 'string' || !dataUrl || typeof dataUrl !== 'string') return;
+  // Sanitize family: only allow alphanumeric, underscores, hyphens and spaces
+  const cleanFamily = family.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim();
+  if (!cleanFamily) return;
+
+  const styleId = `style-${cleanFamily.replace(/\s+/g, '_')}`;
+  if (document.getElementById(styleId)) return;
+
+  // Sanitize dataUrl: ensure no quotes, line breaks, or braces
+  const cleanDataUrl = dataUrl.replace(/["'\n\r;{}]/g, '').trim();
+  if (!cleanDataUrl) return;
+
   const style = document.createElement('style');
-  style.id = `style-${family}`;
-  style.innerHTML = `
+  style.id = styleId;
+  style.textContent = `
     @font-face {
-      font-family: '${family}';
-      src: url('${dataUrl}');
+      font-family: "${cleanFamily}";
+      src: url("${cleanDataUrl}");
     }
   `;
   document.head.appendChild(style);
@@ -50,23 +61,27 @@ export function useProject(projectId: string | undefined, templateId: string | n
   useEffect(() => {
     async function loadData() {
       if (!projectId) return;
-      const savedData = await getProject(projectId);
+      try {
+        const savedData = await getProject(projectId);
 
-      if (savedData) {
-        const loadedFonts = savedData.customFonts || [];
-        loadedFonts.forEach((font: CustomFont) => {
-          if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
-        });
+        if (savedData) {
+          const loadedFonts = savedData.customFonts || [];
+          loadedFonts.forEach((font: CustomFont) => {
+            if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
+          });
 
-        dispatch({
-          type: 'LOAD_PROJECT',
-          payload: {
-            pages: savedData.pages || [createPageFromTemplate({ templateId: 'classic-cover' })],
-            customFonts: loadedFonts,
-            pageSize: savedData.settings?.pageSize || 'A4',
-          },
-        });
-        return;
+          dispatch({
+            type: 'LOAD_PROJECT',
+            payload: {
+              pages: savedData.pages || [createPageFromTemplate({ templateId: 'classic-cover' })],
+              customFonts: loadedFonts,
+              pageSize: savedData.settings?.pageSize || 'A4',
+            },
+          });
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to load project from DB:', err);
       }
 
       const templateSpec = getTemplateSpec(templateId);
@@ -125,69 +140,73 @@ export function useProject(projectId: string | undefined, templateId: string | n
   const saveToDB = useCallback(async (previewRef: React.RefObject<HTMLDivElement | null>, options?: { generateThumbnail?: boolean }) => {
     if (!projectId || !isLoaded) return;
 
-    let thumbnail = null;
-    if (previewRef.current && options?.generateThumbnail) {
-      try {
-        const pageEl = previewRef.current.querySelector('.magazine-page-container.block .magazine-page') as HTMLElement
-          || previewRef.current.querySelector('.magazine-page') as HTMLElement;
-        if (pageEl) {
-          const currentBg = currentPageRef.current?.backgroundColor || pages[0]?.backgroundColor || '#FAF9F4';
-          thumbnail = await toPng(pageEl, {
-            pixelRatio: 0.2,
-            quality: 0.5,
-            backgroundColor: currentBg,
-          });
+    try {
+      let thumbnail = null;
+      if (previewRef.current && options?.generateThumbnail) {
+        try {
+          const pageEl = previewRef.current.querySelector('.magazine-page-container.block .magazine-page') as HTMLElement
+            || previewRef.current.querySelector('.magazine-page') as HTMLElement;
+          if (pageEl) {
+            const currentBg = currentPageRef.current?.backgroundColor || pages[0]?.backgroundColor || '#FAF9F4';
+            thumbnail = await toPng(pageEl, {
+              pixelRatio: 0.2,
+              quality: 0.5,
+              backgroundColor: currentBg,
+            });
+          }
+        } catch (e) {
+          console.error('Thumbnail generation failed', e);
         }
-      } catch (e) {
-        console.error('Thumbnail generation failed', e);
       }
-    }
 
-    const projectState = {
-      pages,
-      customFonts,
-      settings: { pageSize },
-      lastEdited: new Date().toISOString(),
-      title: pages[0]?.titleEn || 'Untitled Project'
-    };
+      const projectState = {
+        pages,
+        customFonts,
+        settings: { pageSize },
+        lastEdited: new Date().toISOString(),
+        title: pages[0]?.titleEn || 'Untitled Project'
+      };
 
-    await saveProject(projectId, projectState);
+      await saveProject(projectId, projectState);
 
-    let index: any[] = [];
-    try {
-      const indexSaved = localStorage.getItem('magazine_recent_projects');
-      if (indexSaved) {
-        index = JSON.parse(indexSaved);
-        if (!Array.isArray(index)) index = [];
+      let index: any[] = [];
+      try {
+        const indexSaved = localStorage.getItem('magazine_recent_projects');
+        if (indexSaved) {
+          index = JSON.parse(indexSaved);
+          if (!Array.isArray(index)) index = [];
+        }
+      } catch {
+        index = [];
       }
-    } catch {
-      index = [];
-    }
 
-    const existingIdx = index.findIndex((p: any) => p && p.id === projectId);
+      const existingIdx = index.findIndex((p: any) => p && p.id === projectId);
 
-    if (!thumbnail && existingIdx > -1) {
-      thumbnail = index[existingIdx].thumbnail;
-    }
+      if (!thumbnail && existingIdx > -1) {
+        thumbnail = index[existingIdx].thumbnail;
+      }
 
-    const projectSummary = {
-      id: projectId,
-      title: projectState.title,
-      date: new Date().toLocaleDateString(),
-      type: pages[0]?.layoutId || pages[0]?.type || 'Custom',
-      thumbnail
-    };
+      const projectSummary = {
+        id: projectId,
+        title: projectState.title,
+        date: new Date().toLocaleDateString(),
+        type: pages[0]?.layoutId || pages[0]?.type || 'Custom',
+        thumbnail
+      };
 
-    if (existingIdx > -1) {
-      index[existingIdx] = projectSummary;
-    } else {
-      index.unshift(projectSummary);
-    }
+      if (existingIdx > -1) {
+        index[existingIdx] = projectSummary;
+      } else {
+        index.unshift(projectSummary);
+      }
 
-    try {
-      localStorage.setItem('magazine_recent_projects', JSON.stringify(index.slice(0, 12)));
-    } catch {
-      // Ignore localStorage storage full errors
+      try {
+        localStorage.setItem('magazine_recent_projects', JSON.stringify(index.slice(0, 12)));
+      } catch {
+        // Ignore localStorage storage full errors
+      }
+    } catch (err) {
+      console.error('saveToDB failed:', err);
     }
   }, [pages, customFonts, pageSize, projectId, isLoaded]);
 

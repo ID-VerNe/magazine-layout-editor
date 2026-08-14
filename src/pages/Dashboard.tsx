@@ -105,29 +105,34 @@ export default function Dashboard() {
 
   const duplicateProject = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const original = await getProject(id);
-    if (!original) return;
-    const newId = `proj-${Date.now()}`;
-    const newProject = {
-      ...original,
-      id: newId,
-      title: `${original.title || 'Untitled'} (Copy)`,
-      lastEdited: new Date().toISOString(),
-    };
-    await saveProject(newId, newProject);
-    const projectSummary = {
-      id: newId,
-      title: newProject.title,
-      date: new Date().toLocaleDateString(),
-      type: original.pages?.[0]?.layoutId || original.pages?.[0]?.type || 'Custom',
-      thumbnail: original.thumbnail || null,
-    };
-    const updated = [projectSummary, ...recentProjects];
-    setRecentProjects(updated);
     try {
-      localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(updated.slice(0, 12)));
-    } catch {
-      // ignore storage error
+      const original = await getProject(id);
+      if (!original) return;
+      const newId = `proj-${Date.now()}`;
+      const newProject = {
+        ...original,
+        id: newId,
+        title: `${original.title || 'Untitled'} (Copy)`,
+        lastEdited: new Date().toISOString(),
+      };
+      await saveProject(newId, newProject);
+      const existingThumbnail = recentProjects.find(p => p.id === id)?.thumbnail || null;
+      const projectSummary = {
+        id: newId,
+        title: newProject.title,
+        date: new Date().toLocaleDateString(),
+        type: original.pages?.[0]?.layoutId || original.pages?.[0]?.type || 'Custom',
+        thumbnail: existingThumbnail,
+      };
+      const updated = [projectSummary, ...recentProjects];
+      setRecentProjects(updated);
+      try {
+        localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(updated.slice(0, 12)));
+      } catch {
+        // ignore storage error
+      }
+    } catch (err) {
+      console.error('Failed to duplicate project:', err);
     }
   };
 

@@ -148,11 +148,17 @@ function sanitizeFonts(fonts: any): CustomFont[] {
   if (!Array.isArray(fonts)) return [];
   return fonts
     .filter(f => f && typeof f === 'object' && typeof f.name === 'string' && typeof f.family === 'string')
-    .map(f => ({
-      name: String(f.name),
-      family: String(f.family),
-      dataUrl: typeof f.dataUrl === 'string' ? f.dataUrl : undefined,
-    }));
+    .map(f => {
+      const cleanName = String(f.name).slice(0, 100);
+      const cleanFamily = String(f.family).replace(/[^a-zA-Z0-9_\-\s]/g, '').trim().slice(0, 100);
+      const rawDataUrl = typeof f.dataUrl === 'string' ? f.dataUrl : undefined;
+      const cleanDataUrl = rawDataUrl ? rawDataUrl.replace(/["'\n\r;{}]/g, '').trim() : undefined;
+      return {
+        name: cleanName,
+        family: cleanFamily || `custom-font-${Date.now()}`,
+        dataUrl: cleanDataUrl,
+      };
+    });
 }
 
 export function parseProjectFile(file: File): Promise<ProjectData> {

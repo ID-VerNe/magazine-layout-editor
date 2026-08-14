@@ -85,7 +85,7 @@ const Preview: React.FC<PreviewProps> = ({ page, pageIndex, totalPages, pageSize
         width: '800px', 
         backgroundColor: page.backgroundColor || '#FAF9F4',
         height: getPageHeight(),
-        minHeight: '1131px',
+        minHeight: pageSize === 'Unlimited' ? 'auto' : '1131px',
         display: 'flex',
         flexDirection: 'column'
       }}

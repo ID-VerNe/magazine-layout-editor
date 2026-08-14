@@ -3,7 +3,6 @@ import { PageSize } from '../types';
 
 interface UsePreviewOptions {
   pageSize: PageSize;
-  pages: any[];
   currentPageIndex: number;
 }
 
@@ -76,12 +75,12 @@ export function usePreview({ pageSize, currentPageIndex }: UsePreviewOptions) {
     setIsAutoFit(!isAutoFit);
   };
 
-  const handleOverflowChange = (pageId: string, isOverflowing: boolean) => {
+  const handleOverflowChange = useCallback((pageId: string, isOverflowing: boolean) => {
     setPagesOverflow(prev => {
       if (prev[pageId] === isOverflowing) return prev;
       return { ...prev, [pageId]: isOverflowing };
     });
-  };
+  }, []);
 
   return {
     previewZoom,

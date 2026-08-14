@@ -56,8 +56,8 @@ const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflow
   return (
     <div className="space-y-10 pb-20">
       {enforceA4 && isOverflowing && (
-        <div className="bg-red-50 rounded-xl p-4 flex items-start gap-3 animate-pulse">
-          <AlertTriangle className="text-red-500 shrink-0" size={20} />
+        <div role="alert" aria-live="polite" className="bg-red-50 rounded-xl p-4 flex items-start gap-3 animate-pulse">
+          <AlertTriangle className="text-red-500 shrink-0" size={20} aria-hidden="true" />
           <div>
             <h4 className="text-red-800 text-xs font-bold uppercase tracking-wider">Content Overflow</h4>
             <p className="text-red-600 text-[10px] mt-1 leading-relaxed">Content exceeds page limits. Growth parameters are locked.</p>

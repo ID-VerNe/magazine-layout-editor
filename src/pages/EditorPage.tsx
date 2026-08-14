@@ -47,7 +47,7 @@ export default function EditorPage() {
     handleManualZoom,
     toggleFit,
     handleOverflowChange,
-  } = usePreview({ pageSize, pages, currentPageIndex });
+  } = usePreview({ pageSize, currentPageIndex });
 
   const [isExporting, setIsExporting] = useState(false);
   const [showFontManager, setShowFontManager] = useState(false);
@@ -57,7 +57,7 @@ export default function EditorPage() {
   const saveToDBRef = useRef(saveToDB);
   saveToDBRef.current = saveToDB;
 
-  // Auto-save logic with flush on unmount to prevent data loss when navigating away
+  // Auto-save logic with safe promise error handling and flush on unmount
   useEffect(() => {
     let timeout: NodeJS.Timeout | null = null;
     let pendingSave = false;
@@ -66,7 +66,14 @@ export default function EditorPage() {
       pendingSave = true;
       timeout = setTimeout(() => {
         pendingSave = false;
-        saveToDBRef.current(previewRef, { generateThumbnail: false });
+        try {
+          const promise = saveToDBRef.current(previewRef, { generateThumbnail: false });
+          if (promise && typeof (promise as any).catch === 'function') {
+            (promise as any).catch((err: any) => console.error('Auto-save error:', err));
+          }
+        } catch (err) {
+          console.error('Auto-save sync error:', err);
+        }
       }, 1000);
     }
 
@@ -75,8 +82,14 @@ export default function EditorPage() {
         clearTimeout(timeout);
       }
       if (pendingSave && projectId && isLoaded) {
-        // Flush pending save immediately on unmount/route change
-        saveToDBRef.current(previewRef, { generateThumbnail: false });
+        try {
+          const promise = saveToDBRef.current(previewRef, { generateThumbnail: false });
+          if (promise && typeof (promise as any).catch === 'function') {
+            (promise as any).catch((err: any) => console.error('Auto-save unmount flush error:', err));
+          }
+        } catch (err) {
+          console.error('Auto-save unmount flush sync error:', err);
+        }
       }
     };
   }, [pages, customFonts, pageSize, projectId, isLoaded, previewRef]);
@@ -181,7 +194,11 @@ export default function EditorPage() {
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
                 className="absolute bottom-4 left-4 z-20"
               >
-                <FontManager fonts={customFonts} onFontsChange={setCustomFonts} />
+                <FontManager
+                  fonts={customFonts}
+                  onFontsChange={setCustomFonts}
+                  onClose={() => setShowFontManager(false)}
+                />
               </motion.div>
             )}
           </AnimatePresence>

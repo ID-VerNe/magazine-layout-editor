@@ -33,7 +33,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     type: 'cover',
     description: 'Traditional layout with hero imagery and bold serif headlines.',
     previewImage: '/previews/classic.png',
-    sections: ['layout', 'image', 'headlines', 'cover-features', 'advanced', 'colors', 'footer'],
+    sections: ['layout', 'image', 'headlines', 'cover-features', 'colors', 'footer'],
   },
   {
     id: 'impact-bold',
@@ -69,7 +69,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     type: 'cover',
     description: 'Aggressive, skewed typography with bold highlight blocks.',
     previewImage: '/previews/tabloid.png',
-    sections: ['layout', 'image', 'headlines', 'advanced', 'colors', 'footer'],
+    sections: ['layout', 'image', 'headlines', 'colors', 'footer'],
   },
   {
     id: 'typography',
@@ -107,7 +107,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     type: 'article',
     description: 'Technical dual-column layout with engineering grids and monospace.',
     previewImage: '/previews/blueprints_article.png',
-    sections: ['layout', 'image', 'headlines', 'content', 'advanced', 'colors', 'footer'],
+    sections: ['layout', 'image', 'headlines', 'content', 'blueprint-stamp', 'advanced', 'colors', 'footer'],
   },
   {
     id: 'intensive-reading',

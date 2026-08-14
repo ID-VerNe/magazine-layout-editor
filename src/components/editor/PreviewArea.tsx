@@ -1,7 +1,47 @@
-import React from 'react';
+import React, { memo, useCallback } from 'react';
 import Preview from '../Preview';
 import { PageData, PageSize } from '../../types';
 import { ErrorBoundary } from '../ErrorBoundary';
+
+interface PagePreviewItemProps {
+  page: PageData;
+  idx: number;
+  totalPages: number;
+  isActive: boolean;
+  pageSize: PageSize;
+  onPageOverflowChange: (pageId: string, isOverflowing: boolean) => void;
+}
+
+const PagePreviewItem = memo(({
+  page,
+  idx,
+  totalPages,
+  isActive,
+  pageSize,
+  onPageOverflowChange,
+}: PagePreviewItemProps) => {
+  const handleOverflow = useCallback((isOverflowing: boolean) => {
+    onPageOverflowChange(page.id, isOverflowing);
+  }, [page.id, onPageOverflowChange]);
+
+  return (
+    <div 
+      data-page-id={page.id}
+      className={`magazine-page-container ${isActive ? 'block' : 'hidden'} shadow-2xl shadow-slate-300/50`}
+    >
+      <ErrorBoundary fallbackTitle={`Page ${idx + 1} Render Error`}>
+        <Preview 
+          page={page} 
+          pageIndex={idx} 
+          totalPages={totalPages} 
+          pageSize={pageSize} 
+          onOverflowChange={handleOverflow}
+        />
+      </ErrorBoundary>
+    </div>
+  );
+});
+PagePreviewItem.displayName = 'PagePreviewItem';
 
 interface PreviewAreaProps {
   pages: PageData[];
@@ -30,21 +70,15 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
         style={{ transform: `scale(${previewZoom})` }}
       >
         {pages.map((page, idx) => (
-          <div 
-            key={page.id} 
-            data-page-id={page.id}
-            className={`magazine-page-container ${idx === currentPageIndex ? 'block' : 'hidden'} shadow-2xl shadow-slate-300/50`}
-          >
-            <ErrorBoundary key={page.id} fallbackTitle={`Page ${idx + 1} Render Error`}>
-              <Preview 
-                page={page} 
-                pageIndex={idx} 
-                totalPages={pages.length} 
-                pageSize={pageSize} 
-                onOverflowChange={(overflow) => onOverflowChange(page.id, overflow)}
-              />
-            </ErrorBoundary>
-          </div>
+          <PagePreviewItem
+            key={page.id}
+            page={page}
+            idx={idx}
+            totalPages={pages.length}
+            isActive={idx === currentPageIndex}
+            pageSize={pageSize}
+            onPageOverflowChange={onOverflowChange}
+          />
         ))}
       </div>
     </div>

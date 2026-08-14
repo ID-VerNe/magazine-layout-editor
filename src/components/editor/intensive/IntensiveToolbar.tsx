@@ -20,20 +20,23 @@ export const ToolbarButton: React.FC<{
   disabled?: boolean;
 }> = memo(({ onClick, isActive, icon: Icon, title, isAction, disabled }) => (
   <button
+    type="button"
     onClick={onClick}
     title={title}
+    aria-label={title}
+    aria-pressed={isActive}
     disabled={disabled}
-    className={`p-1.5 rounded transition-colors ${
+    className={`p-1.5 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376] ${
       disabled
         ? 'opacity-40 cursor-not-allowed text-slate-400'
         : isActive
-          ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300'
+          ? 'bg-[#264376] text-white shadow-sm ring-2 ring-[#264376]/30'
           : isAction
             ? 'text-slate-700 bg-white shadow-sm border border-slate-200 hover:bg-slate-50'
             : 'text-slate-600 hover:bg-slate-200/50 hover:text-slate-900'
     }`}
   >
-    <Icon size={14} />
+    <Icon size={14} aria-hidden="true" />
   </button>
 ));
 
@@ -64,17 +67,21 @@ export const ArticleToolbar: React.FC<ArticleToolbarProps> = ({
     <div className="flex flex-wrap items-center gap-1 p-1.5 bg-slate-100 rounded-lg shadow-inner">
       <div className="flex bg-slate-200 p-0.5 rounded mr-2">
         <button
+          type="button"
           onClick={() => onSetAnnotateMode(false)}
-          className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-            !isAnnotateMode ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'
+          aria-pressed={!isAnnotateMode}
+          className={`px-3 py-1 text-xs font-medium rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376] ${
+            !isAnnotateMode ? 'bg-white shadow text-slate-800 font-bold' : 'text-slate-500 hover:text-slate-700'
           }`}
         >
           Edit Article
         </button>
         <button
+          type="button"
           onClick={() => onSetAnnotateMode(true)}
-          className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-            isAnnotateMode ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'
+          aria-pressed={isAnnotateMode}
+          className={`px-3 py-1 text-xs font-medium rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376] ${
+            isAnnotateMode ? 'bg-white shadow text-slate-800 font-bold' : 'text-slate-500 hover:text-slate-700'
           }`}
         >
           Annotate
@@ -133,6 +140,7 @@ export const ArticleToolbar: React.FC<ArticleToolbarProps> = ({
       <div className="w-px h-4 bg-slate-300 mx-1" />
       <select
         value={editor.getAttributes('textStyle').fontSize || ''}
+        aria-label="Article text font size"
         onChange={(e) => {
           const v = e.target.value;
           if (v) editor.chain().focus().setFontSize(v).run();
@@ -151,6 +159,7 @@ export const ArticleToolbar: React.FC<ArticleToolbarProps> = ({
       </select>
       <select
         value={editor.getAttributes('textStyle').fontFamily || ''}
+        aria-label="Article text font family"
         onChange={(e) => {
           const v = e.target.value;
           if (v) editor.chain().focus().setFontFamily(v).run();

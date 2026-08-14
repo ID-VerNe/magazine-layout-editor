@@ -47,9 +47,11 @@ export default function ClassicArticle({ page, pageIndex, totalPages }: Template
                 </p>
               </div>
               <div
-                className={`border-l pl-10 transition-all duration-300 ${
-                  p.emphasis ? 'bg-slate-50/50 border-[#367237]/20' : 'border-neutral-200'
-                }`}
+                className="border-l pl-10 transition-all duration-300"
+                style={{
+                  borderLeftColor: p.emphasis ? `${accentColor}40` : '#e5e5e5',
+                  backgroundColor: p.emphasis ? `${accentColor}08` : 'transparent',
+                }}
               >
                 <p
                   className="text-neutral-700 font-normal text-justify whitespace-pre-wrap"

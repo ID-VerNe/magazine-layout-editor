@@ -151,16 +151,17 @@ export const CommentEditor = memo(({
 
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden bg-white mb-3 shadow-sm">
-      <div className="bg-slate-50 text-xs font-bold text-[#367237] p-2 border-b flex justify-between items-center">
+      <div className="bg-slate-50 text-xs font-bold text-[#264376] p-2 border-b flex justify-between items-center">
         <span>{!hideSeq && `[${annotation.seq}] `}{annotation.text}</span>
         <div className="flex items-center gap-1">
           <select
             value={annotation.fontSize || ''}
             onChange={(e) => onSetAnnotationFontSize(annotation.id, e.target.value)}
-            className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-amber-50 text-slate-500 focus:outline-none cursor-pointer"
-            title="标注本体字号（右侧批注区显示的标注文字）"
+            aria-label="Word mark font size"
+            className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-amber-50 text-slate-700 focus:outline-none cursor-pointer"
+            title="Word mark font size in comment column"
           >
-            <option value="">注字</option>
+            <option value="">Word Size</option>
             <option value="12px">12</option>
             <option value="14px">14</option>
             <option value="16px">16</option>
@@ -170,23 +171,28 @@ export const CommentEditor = memo(({
           </select>
           <div className="w-px h-3 bg-slate-300 mx-0.5" />
           <button
+            type="button"
             onMouseDown={(e) => { e.preventDefault(); toggleMark('b'); }}
-            className="p-1 rounded hover:bg-slate-200 text-slate-500"
+            className="p-1 rounded hover:bg-slate-200 text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376]"
             title="Bold"
+            aria-label="Format Bold"
           >
-            <Bold size={12} />
+            <Bold size={12} aria-hidden="true" />
           </button>
           <button
+            type="button"
             onMouseDown={(e) => { e.preventDefault(); toggleMark('i'); }}
-            className="p-1 rounded hover:bg-slate-200 text-slate-500"
+            className="p-1 rounded hover:bg-slate-200 text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376]"
             title="Italic"
+            aria-label="Format Italic"
           >
-            <Italic size={12} />
+            <Italic size={12} aria-hidden="true" />
           </button>
           <select
             defaultValue=""
+            aria-label="Comment text font size"
             onChange={(e) => { const v = e.target.value; if (v) applyStyle('fontSize', v); e.target.value = ''; }}
-            className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-white text-slate-500 focus:outline-none cursor-pointer"
+            className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-white text-slate-700 focus:outline-none cursor-pointer"
             title="Font size"
           >
             <option value="" disabled>Size</option>
@@ -199,8 +205,9 @@ export const CommentEditor = memo(({
           </select>
           <select
             defaultValue=""
+            aria-label="Comment text font family"
             onChange={(e) => { const v = e.target.value; if (v) applyStyle('fontFamily', v); e.target.value = ''; }}
-            className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-white text-slate-500 focus:outline-none cursor-pointer max-w-[110px]"
+            className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-white text-slate-700 focus:outline-none cursor-pointer max-w-[110px]"
             title="Font family"
           >
             <option value="" disabled>Font</option>
@@ -213,16 +220,21 @@ export const CommentEditor = memo(({
           </select>
           <div className="w-px h-3 bg-slate-300 mx-0.5" />
           <button
+            type="button"
             onClick={() => onRemove(annotation.id)}
-            className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50"
+            className="p-1 rounded text-red-500 hover:text-red-700 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
             title="Remove annotation"
+            aria-label={`Remove annotation for ${annotation.text}`}
           >
-            <X size={12} />
+            <X size={12} aria-hidden="true" />
           </button>
         </div>
       </div>
       <div
         ref={editorRef}
+        role="textbox"
+        aria-multiline="true"
+        aria-label={`Comment text for ${annotation.text}`}
         className="p-2 prose prose-sm max-w-none focus:outline-none min-h-[60px]"
         contentEditable
         suppressContentEditableWarning

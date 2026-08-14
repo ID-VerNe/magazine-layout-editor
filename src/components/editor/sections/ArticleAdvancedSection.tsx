@@ -24,7 +24,7 @@ export const ArticleAdvancedSection: React.FC<SectionProps> = ({ page, onUpdate,
   };
 
   const currentLayout = page.layoutId || (page.type === 'cover' ? 'classic-cover' : 'classic-article');
-  const isSplit = currentLayout === 'classic-article' || currentLayout === 'blueprint-article';
+  const isSplit = currentLayout === 'classic-article' || currentLayout === 'blueprint-article' || currentLayout === 'intensive-reading';
 
   return (
     <section className="space-y-6 pt-6 border-t border-slate-100">
@@ -32,16 +32,17 @@ export const ArticleAdvancedSection: React.FC<SectionProps> = ({ page, onUpdate,
       
       {/* Image Position Toggle */}
       <div className="space-y-3">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Main Image Position</span>
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Main Image Position</span>
         <div className="flex bg-slate-100 p-1 rounded-lg">
           {(['middle', 'bottom', 'absolute-bottom'] as const).map((pos) => (
             <button
               key={pos}
+              type="button"
               onClick={() => handleChange('imagePosition', pos)}
               className={`flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all rounded-md ${
                 (page.imagePosition || 'middle') === pos 
                   ? 'bg-[#264376] text-white shadow-sm' 
-                  : 'text-slate-400 hover:text-slate-600'
+                  : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               {pos === 'middle' ? 'Below Title' : pos === 'bottom' ? 'Upon Footer' : 'Bottom Fixed'}
@@ -53,8 +54,8 @@ export const ArticleAdvancedSection: React.FC<SectionProps> = ({ page, onUpdate,
       {/* Typography Spacing (Moved here) */}
       <div className="space-y-5 pt-4 border-t border-slate-50">
         <div className="flex items-center gap-2 mb-1">
-          <AlignJustify size={12} className="text-[#264376]" />
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Typography Spacing</span>
+          <AlignJustify size={12} className="text-[#264376]" aria-hidden="true" />
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Typography Spacing</span>
         </div>
         <div className="space-y-4 px-1">
            <Slider 
@@ -74,9 +75,18 @@ export const ArticleAdvancedSection: React.FC<SectionProps> = ({ page, onUpdate,
 
       {isSplit && (
         <div className="space-y-5 pt-4 border-t border-slate-50 animate-in fade-in">
-          <div className="flex items-center gap-2 mb-1">
-            <GitCommit size={12} className="text-[#264376]" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Column Balancing</span>
+          <div className="flex justify-between items-center mb-1">
+            <div className="flex items-center gap-2">
+              <GitCommit size={12} className="text-[#264376]" aria-hidden="true" />
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Column Balancing</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => onUpdate({ ...page, splitRatio: 64, fontBalance: 0 })}
+              className="text-[10px] text-[#264376] font-bold uppercase tracking-wider hover:underline"
+            >
+              Reset
+            </button>
           </div>
           <Slider 
             label="Split Ratio" 
@@ -90,7 +100,7 @@ export const ArticleAdvancedSection: React.FC<SectionProps> = ({ page, onUpdate,
             min={-5} max={5} step={0.1} 
             onChange={(v) => handleChange('fontBalance', v)} 
           />
-          <p className="text-[9px] text-slate-400 italic leading-relaxed">
+          <p className="text-[9px] text-slate-500 italic leading-relaxed">
             Hint: Increase 'Split Ratio' or 'Align Balance' to shorten the English column.
           </p>
         </div>

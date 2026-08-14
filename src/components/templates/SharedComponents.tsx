@@ -22,22 +22,18 @@ export const CoverBadgeLogo: React.FC<{ page: PageData }> = ({ page }) => {
         transform: `translate(${page.logoX || 0}px, ${page.logoY || 0}px)`,
       }}
     >
-      <div
-        className="flex items-center justify-center overflow-hidden"
-        style={{
-          width: page.featuredText ? '32px' : 'auto',
-          height: `${page.featuredText ? 32 : page.logoSize || 32}px`,
-          borderRadius: `${(page.badgeRadius ?? 15) / 2}px`,
-        }}
-      >
-        {page.logo ? (
+      {page.logo && (
+        <div
+          className="flex items-center justify-center overflow-hidden"
+          style={{
+            width: page.featuredText ? '32px' : 'auto',
+            height: `${page.featuredText ? 32 : page.logoSize || 32}px`,
+            borderRadius: `${(page.badgeRadius ?? 15) / 2}px`,
+          }}
+        >
           <img src={page.logo} className="h-full w-auto object-contain" alt="Logo" />
-        ) : (
-          <div className="w-full h-full bg-blue-500 rounded flex items-center justify-center text-white font-bold text-lg">
-            W
-          </div>
-        )}
-      </div>
+        </div>
+      )}
       {page.featuredText && (
         <span className="font-bold text-xl magazine-serif-zh text-[#111] whitespace-pre-wrap">
           {formatMagazineText(page.featuredText)}
@@ -100,7 +96,7 @@ export const FooterDisplay: React.FC<{ page: PageData; pageIndex: number; totalP
   const bgColor = page.backgroundColor || '#FAF9F4';
   const isDark = isDarkColor(bgColor);
 
-  const showDisclaimer = !page.hideDisclaimer && page.type === 'cover';
+  const showDisclaimer = !page.hideDisclaimer;
   const showFootnote = Boolean(page.footnote && page.type === 'article');
   const hasTopContent = showDisclaimer || showFootnote;
 
@@ -159,28 +155,27 @@ export const FooterDisplay: React.FC<{ page: PageData; pageIndex: number; totalP
 
   return (
     <div
-      className={`px-10 flex flex-col text-lg z-20 mt-auto transition-all duration-500 ${styles.container} ${
-        hasTopContent ? 'pt-8 pb-10' : 'pt-6 pb-6'
-      }`}
+      className={`px-10 flex flex-col text-lg z-20 mt-auto transition-all duration-500 ${styles.container} pt-6 pb-6`}
       style={{
         fontFamily: page.footerFont || "'Inter', sans-serif",
         backgroundColor: page.backgroundColor || '#FAF9F4',
       }}
     >
       {hasTopContent && (
-        <div className="w-full mb-4 animate-in fade-in slide-in-from-top-1">
-          {showDisclaimer ? (
-            <p className="text-[14px] leading-relaxed text-justify w-full opacity-40">
-              本文是为提供一般信息的用途所撰写/翻译，文章仅代表原作者个人观点，不代表本账号立场。
-            </p>
-          ) : showFootnote ? (
+        <div className="w-full mb-4 animate-in fade-in slide-in-from-top-1 space-y-2">
+          {showFootnote && (
             <p
               className="text-[14px] leading-relaxed text-left whitespace-pre-line opacity-75"
               style={{ fontFamily: page.footnoteFont || page.footerFont }}
             >
               {page.footnote}
             </p>
-          ) : null}
+          )}
+          {showDisclaimer && (
+            <p className="text-[14px] leading-relaxed text-justify w-full opacity-40">
+              本文是为提供一般信息的用途所撰写/翻译，文章仅代表原作者个人观点，不代表本账号立场。
+            </p>
+          )}
         </div>
       )}
 

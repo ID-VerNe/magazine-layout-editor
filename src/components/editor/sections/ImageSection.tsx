@@ -54,10 +54,12 @@ export const ImageSection: React.FC<SectionProps> = ({ page, onUpdate, isOverflo
         <Label icon={ImageIcon}>Main Image</Label>
         {page.image && (
           <button
+            type="button"
             onClick={() => handleChange('image', '')}
-            className="text-[10px] text-red-500 hover:text-red-600 font-bold uppercase flex items-center gap-1 transition-colors"
+            aria-label="Remove main image"
+            className="text-[10px] text-red-500 hover:text-red-600 font-bold uppercase flex items-center gap-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded"
           >
-            <X size={10} /> Remove
+            <X size={10} aria-hidden="true" /> Remove
           </button>
         )}
       </div>
@@ -68,9 +70,14 @@ export const ImageSection: React.FC<SectionProps> = ({ page, onUpdate, isOverflo
           placeholder="Image URL..."
           value={page.image}
           onChange={(e) => handleChange('image', e.target.value)}
+          aria-label="Main image URL"
         />
-        <label className="cursor-pointer bg-slate-50 p-2.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
-          <ImageIcon size={18} />
+        <label
+          className="cursor-pointer bg-slate-50 p-2.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors flex items-center justify-center focus-within:ring-2 focus-within:ring-[#264376]"
+          aria-label="Upload main image"
+          title="Upload main image"
+        >
+          <ImageIcon size={18} aria-hidden="true" />
           <input
             type="file"
             className="hidden"
@@ -83,12 +90,13 @@ export const ImageSection: React.FC<SectionProps> = ({ page, onUpdate, isOverflo
       {page.image && (
         <div className="space-y-5 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2">
           <div className="flex justify-between items-center">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
               Adjust Framing
             </h4>
             <button
+              type="button"
               onClick={resetImageConfig}
-              className="text-[10px] text-[#367237] hover:brightness-125 font-black uppercase tracking-widest cursor-pointer transition-all"
+              className="text-[10px] text-[#264376] hover:brightness-125 font-black uppercase tracking-widest cursor-pointer transition-all"
             >
               Reset
             </button>

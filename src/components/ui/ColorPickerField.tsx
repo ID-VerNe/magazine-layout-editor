@@ -26,6 +26,7 @@ export const ColorPickerField: React.FC<ColorPickerFieldProps> = ({
       >
         <input
           type="color"
+          aria-label={label ? `${label} color picker` : 'Color picker'}
           className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer p-0 border-0"
           value={displayValue}
           onChange={(e) => onChange(e.target.value)}
@@ -33,6 +34,7 @@ export const ColorPickerField: React.FC<ColorPickerFieldProps> = ({
       </div>
       <Input
         type="text"
+        aria-label={label ? `${label} hex value` : 'Color hex code'}
         className="font-mono uppercase text-xs"
         placeholder={placeholder || 'Color Hex'}
         value={value}

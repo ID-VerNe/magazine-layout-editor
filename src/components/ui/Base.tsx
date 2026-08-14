@@ -151,10 +151,10 @@ export const TextArea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttrib
           isFocused ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-1 pointer-events-none'
         }`}
       >
-        <button type="button" onMouseDown={(e) => { e.preventDefault(); insertFormat('\\b{', '}'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="Bold"><Bold size={12} /></button>
-        <button type="button" onMouseDown={(e) => { e.preventDefault(); insertFormat('\\i{', '}'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="Italic"><Italic size={12} /></button>
-        <button type="button" onMouseDown={(e) => { e.preventDefault(); insertFormat('\\u{', '}'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="Underline"><Underline size={12} /></button>
-        <button type="button" onMouseDown={(e) => { e.preventDefault(); insertFormat('\\s{', '}'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="Strikethrough"><Strikethrough size={12} /></button>
+        <button type="button" onMouseDown={(e) => { e.preventDefault(); insertFormat('\\b{', '}'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="Bold" aria-label="Format Bold"><Bold size={12} aria-hidden="true" /></button>
+        <button type="button" onMouseDown={(e) => { e.preventDefault(); insertFormat('\\i{', '}'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="Italic" aria-label="Format Italic"><Italic size={12} aria-hidden="true" /></button>
+        <button type="button" onMouseDown={(e) => { e.preventDefault(); insertFormat('\\u{', '}'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="Underline" aria-label="Format Underline"><Underline size={12} aria-hidden="true" /></button>
+        <button type="button" onMouseDown={(e) => { e.preventDefault(); insertFormat('\\s{', '}'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="Strikethrough" aria-label="Format Strikethrough"><Strikethrough size={12} aria-hidden="true" /></button>
       </div>
       <textarea
         {...props}
@@ -167,7 +167,7 @@ export const TextArea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttrib
           else if (ref) (ref as React.MutableRefObject<HTMLTextAreaElement | null>).current = node;
           (internalRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = node;
         }}
-        className={`w-full bg-slate-50 border-transparent focus:border-[#367237] focus:bg-white focus:ring-2 focus:ring-[#367237]/20 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 transition-all placeholder-slate-400 ${props.className || ''}`}
+        className={`w-full bg-slate-50 border-transparent focus:border-[#264376] focus:bg-white focus:ring-2 focus:ring-[#264376]/20 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 transition-all placeholder-slate-400 ${props.className || ''}`}
       />
     </div>
   );
@@ -180,30 +180,54 @@ export const Section = ({ children, className = "" }: { children: React.ReactNod
   </section>
 );
 
-export const Slider = ({ label, value, min, max, step, onChange, unit = "" }: { label: string, value: number, min: number, max: number, step: number, onChange: (val: number) => void, unit?: string }) => (
-  <div className="grid grid-cols-[110px_1fr_44px] items-center gap-2 group min-h-[24px]">
-    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-900 transition-colors truncate" title={label}>{label}</span>
-    <div className="flex items-center h-full">
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#264376] hover:brightness-110 transition-all"
-      />
+export const Slider = ({ label, value, min, max, step, onChange, unit = "" }: { label: string, value: number, min: number, max: number, step: number, onChange: (val: number) => void, unit?: string }) => {
+  const id = React.useId();
+  const rangeId = `${id}-range`;
+  const numberId = `${id}-number`;
+
+  const handleRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    if (!isNaN(val)) onChange(val);
+  };
+
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    if (raw === '') return;
+    const val = parseFloat(raw);
+    if (!isNaN(val)) {
+      onChange(val);
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-[110px_1fr_44px] items-center gap-2 group min-h-[24px]">
+      <label htmlFor={rangeId} className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-900 transition-colors truncate cursor-pointer" title={label}>{label}</label>
+      <div className="flex items-center h-full">
+        <input
+          id={rangeId}
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={isNaN(value) ? min : value}
+          onChange={handleRangeChange}
+          aria-label={`${label} slider`}
+          className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#264376] hover:brightness-110 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376]"
+        />
+      </div>
+      <div className="relative flex items-center h-full">
+        <input
+          id={numberId}
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={isNaN(value) ? '' : value}
+          onChange={handleNumberChange}
+          aria-label={`${label} value`}
+          className="w-full bg-transparent border border-transparent hover:bg-slate-50 hover:border-slate-200 focus:bg-white focus:border-[#264376] focus:ring-1 focus:ring-[#264376]/10 rounded px-1 py-0.5 text-[10px] font-bold font-mono text-slate-900 text-right focus:outline-none transition-all appearance-none" 
+        />
+      </div>
     </div>
-    <div className="relative flex items-center h-full">
-      <input
-        type="number"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full bg-transparent border border-transparent hover:bg-slate-50 hover:border-slate-200 focus:bg-white focus:border-[#264376] focus:ring-1 focus:ring-[#264376]/10 rounded px-1 py-0.5 text-[10px] font-bold font-mono text-slate-900 text-right focus:outline-none transition-all appearance-none" 
-      />
-    </div>
-  </div>
-);
+  );
+};
