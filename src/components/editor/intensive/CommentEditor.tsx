@@ -1,6 +1,6 @@
 import React, { memo, useRef, useEffect, useCallback } from 'react';
 import DOMPurify from 'dompurify';
-import { Bold, Italic, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { ExternalAnnotation, CustomFont } from '../../../types';
 
 interface CommentEditorProps {
@@ -93,39 +93,6 @@ export const CommentEditor = memo(({
     flushNow();
   }, [flushNow]);
 
-  const toggleMark = useCallback((tag: 'b' | 'i') => {
-    const el = editorRef.current;
-    if (!el) return;
-    el.focus();
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
-
-    const range = sel.getRangeAt(0);
-    const container = range.commonAncestorContainer;
-    const elem = container.nodeType === Node.ELEMENT_NODE
-      ? container as HTMLElement
-      : container.parentElement;
-    const selector = tag === 'b' ? 'b,strong' : 'i,em';
-    const formatted = elem?.closest(selector);
-
-    if (formatted) {
-      const parent = formatted.parentNode;
-      if (parent) {
-        while (formatted.firstChild) parent.insertBefore(formatted.firstChild, formatted);
-        parent.removeChild(formatted);
-      }
-    } else {
-      const markEl = document.createElement(tag);
-      try {
-        range.surroundContents(markEl);
-      } catch {
-        document.execCommand(tag === 'b' ? 'bold' : 'italic', false);
-      }
-    }
-    el.focus();
-    handleInput();
-  }, [handleInput]);
-
   const applyStyle = useCallback((prop: 'fontSize' | 'fontFamily', value: string) => {
     const el = editorRef.current;
     if (!el) return;
@@ -151,9 +118,9 @@ export const CommentEditor = memo(({
 
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden bg-white mb-3 shadow-sm">
-      <div className="bg-slate-50 text-xs font-bold text-[#264376] p-2 border-b flex justify-between items-center">
-        <span>{!hideSeq && `[${annotation.seq}] `}{annotation.text}</span>
-        <div className="flex items-center gap-1">
+      <div className="bg-slate-50 text-xs font-bold text-[#264376] p-2 border-b flex justify-between items-center gap-1">
+        <span className="min-w-0 truncate">{!hideSeq && `[${annotation.seq}] `}{annotation.text}</span>
+        <div className="flex items-center gap-1 flex-wrap justify-end shrink-0">
           <select
             value={annotation.fontSize || ''}
             onChange={(e) => onSetAnnotationFontSize(annotation.id, e.target.value)}
@@ -161,7 +128,7 @@ export const CommentEditor = memo(({
             className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-amber-50 text-slate-700 focus:outline-none cursor-pointer"
             title="Word mark font size in comment column"
           >
-            <option value="">Word Size</option>
+            <option value="">Size</option>
             <option value="12px">12</option>
             <option value="14px">14</option>
             <option value="16px">16</option>
@@ -169,25 +136,6 @@ export const CommentEditor = memo(({
             <option value="20px">20</option>
             <option value="24px">24</option>
           </select>
-          <div className="w-px h-3 bg-slate-300 mx-0.5" />
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); toggleMark('b'); }}
-            className="p-1 rounded hover:bg-slate-200 text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376]"
-            title="Bold"
-            aria-label="Format Bold"
-          >
-            <Bold size={12} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); toggleMark('i'); }}
-            className="p-1 rounded hover:bg-slate-200 text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376]"
-            title="Italic"
-            aria-label="Format Italic"
-          >
-            <Italic size={12} aria-hidden="true" />
-          </button>
           <select
             defaultValue=""
             aria-label="Comment text font size"
