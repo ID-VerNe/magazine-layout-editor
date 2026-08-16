@@ -33,7 +33,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     type: 'cover',
     description: 'Traditional layout with hero imagery and bold serif headlines.',
     previewImage: '/previews/classic.png',
-    sections: ['layout', 'image', 'headlines', 'cover-features', 'colors', 'footer'],
+    sections: ['layout', 'image', 'headlines', 'intensive-content', 'content', 'colors', 'footer'],
   },
   {
     id: 'impact-bold',
