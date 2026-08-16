@@ -110,6 +110,17 @@ export function createPageFromTemplate(options: CreatePageOptions = {}): PageDat
     page.paragraphs = undefined;
   }
 
+  if (resolvedLayoutId === 'classic-cover') {
+    page.leftContent = '<p>Start typing the main article text here...</p>';
+    page.annotations = [];
+    page.annotationStyle = page.annotationStyle || 'dual';
+    page.annotationTheme = page.annotationTheme || 'highlight';
+    page.hideAnnotationSeq = page.hideAnnotationSeq || false;
+    page.paragraphs = page.paragraphs || [{ id: `p-${Date.now()}`, en: 'Start writing...', zh: '开始写作...' }];
+    page.quoteEn = undefined;
+    page.quoteZh = undefined;
+  }
+
   if (sourcePage) {
     for (const field of inheritFields) {
       if (sourcePage[field] !== undefined) {
