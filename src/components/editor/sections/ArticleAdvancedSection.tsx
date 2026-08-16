@@ -24,7 +24,7 @@ export const ArticleAdvancedSection: React.FC<SectionProps> = ({ page, onUpdate,
   };
 
   const currentLayout = page.layoutId || (page.type === 'cover' ? 'classic-cover' : 'classic-article');
-  const isSplit = currentLayout === 'classic-article' || currentLayout === 'blueprint-article' || currentLayout === 'intensive-reading';
+  const isSplit = currentLayout === 'classic-article' || currentLayout === 'blueprint-article' || currentLayout === 'intensive-reading' || currentLayout === 'classic-cover';
 
   return (
     <section className="space-y-6 pt-6 border-t border-slate-100">
