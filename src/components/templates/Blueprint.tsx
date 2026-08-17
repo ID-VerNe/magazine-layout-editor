@@ -2,7 +2,7 @@ import React from 'react';
 import { TemplateProps } from '../../types';
 import AutoFitHeadline from '../AutoFitHeadline';
 import { formatMagazineText } from '../../utils/formatter';
-import { FooterDisplay } from './SharedComponents';
+import { FooterDisplay, QuoteBlock } from './SharedComponents';
 import { getImagePositionStyles } from '../../utils/imageUtils';
 
 export default function Blueprint({ page, pageIndex, totalPages }: TemplateProps) {
@@ -91,22 +91,13 @@ export default function Blueprint({ page, pageIndex, totalPages }: TemplateProps
                 Technical_Notes / Reference_Quote
               </div>
               <div className="space-y-2 pl-4">
-                {page.quoteEn && (
-                  <p 
-                    className="text-xs italic font-medium leading-relaxed text-slate-500 max-w-xl whitespace-pre-wrap"
-                    style={{ fontFamily: page.quoteEnFont || "'Inter', sans-serif" }}
-                  >
-                    {formatMagazineText(`> ${page.quoteEn}`)}
-                  </p>
-                )}
-                {page.quoteZh && (
-                  <p 
-                    className="text-sm font-bold leading-relaxed text-slate-600 max-w-xl whitespace-pre-wrap"
-                    style={{ fontFamily: page.quoteZhFont || "'Crimson Pro', serif" }}
-                  >
-                    {formatMagazineText(page.quoteZh)}
-                  </p>
-                )}
+                <QuoteBlock
+                  page={page}
+                  containerClassName="space-y-2"
+                  enClassName="text-xs italic font-medium leading-relaxed text-slate-500 max-w-xl whitespace-pre-wrap"
+                  zhClassName="text-sm font-bold leading-relaxed text-slate-600 max-w-xl whitespace-pre-wrap"
+                  enPrefix="> "
+                />
               </div>
             </div>
           )}

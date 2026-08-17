@@ -3,6 +3,7 @@ import { Layout, ChevronDown } from 'lucide-react';
 import { PageData } from '../../../types';
 import { Label } from '../../ui/Base';
 import { TEMPLATES } from '../../../config/templates';
+import { resolveCoverContentMode } from '../../../utils/coverMode';
 
 interface SectionProps {
   page: PageData;
@@ -48,6 +49,28 @@ export const LayoutSection: React.FC<SectionProps> = ({ page, onUpdate }) => {
           <ChevronDown size={14} />
         </div>
       </div>
+
+      {(page.layoutId || (page.type === 'cover' ? 'classic-cover' : 'classic-article')) === 'classic-cover' && (
+        <div className="space-y-2 pt-1">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">正文模式</span>
+          <div className="flex bg-slate-100 p-1 rounded-lg">
+            {(['quote', 'split'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onUpdate({ ...page, coverContentMode: mode })}
+                className={`flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all rounded-md ${
+                  resolveCoverContentMode(page) === mode
+                    ? 'bg-[#264376] text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {mode === 'quote' ? '引言' : '双栏'}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 };

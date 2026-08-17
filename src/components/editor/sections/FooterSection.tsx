@@ -12,7 +12,7 @@ interface SectionProps {
 }
 
 export const FooterSection: React.FC<SectionProps> = ({ page, onUpdate, customFonts }) => {
-  const handleChange = (field: keyof PageData, value: any) => {
+  const handleChange = <K extends keyof PageData>(field: K, value: PageData[K]) => {
     onUpdate({ ...page, [field]: value });
   };
 

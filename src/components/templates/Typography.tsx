@@ -2,7 +2,7 @@ import React from 'react';
 import { TemplateProps } from '../../types';
 import AutoFitHeadline from '../AutoFitHeadline';
 import { formatMagazineText } from '../../utils/formatter';
-import { FooterDisplay } from './SharedComponents';
+import { FooterDisplay, QuoteBlock } from './SharedComponents';
 import { isDarkColor } from '../../utils/colorUtils';
 import { getImagePositionStyles } from '../../utils/imageUtils';
 
@@ -89,22 +89,12 @@ export default function Typography({ page, pageIndex, totalPages }: TemplateProp
               <div className="space-y-2">
                 <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: accentColor, opacity: 0.8 }}>Abstract_Context</span>
                 <div className={`space-y-2 line-clamp-4 ${isDark ? 'text-white/50' : 'text-slate-500'}`}>
-                  {page.quoteEn && (
-                    <p
-                      className="text-xs font-medium leading-relaxed whitespace-pre-wrap"
-                      style={{ fontFamily: page.quoteEnFont || "'Inter', sans-serif" }}
-                    >
-                      {formatMagazineText(page.quoteEn)}
-                    </p>
-                  )}
-                  {page.quoteZh && (
-                    <p
-                      className="text-xs font-bold leading-relaxed whitespace-pre-wrap"
-                      style={{ fontFamily: page.quoteZhFont || "'Crimson Pro', serif" }}
-                    >
-                      {formatMagazineText(page.quoteZh)}
-                    </p>
-                  )}
+                  <QuoteBlock
+                    page={page}
+                    containerClassName="space-y-2"
+                    enClassName="text-xs font-medium leading-relaxed whitespace-pre-wrap"
+                    zhClassName="text-xs font-bold leading-relaxed whitespace-pre-wrap"
+                  />
                 </div>
               </div>
             )}

@@ -4,6 +4,7 @@ import { PageData, CustomFont, Paragraph } from '../../../types';
 import { Label, TextArea } from '../../ui/Base';
 import { FontSelect } from '../../ui/FontSelect';
 import { hexToRgba } from '../../../utils/colorUtils';
+import { nextParagraphId } from '../../../state/pageFactory';
 
 interface SectionProps {
   page: PageData;
@@ -12,11 +13,11 @@ interface SectionProps {
 }
 
 export const ArticleContentSection: React.FC<SectionProps> = ({ page, onUpdate, customFonts }) => {
-  const handleChange = (field: keyof PageData, value: any) => {
+  const handleChange = <K extends keyof PageData>(field: K, value: PageData[K]) => {
     onUpdate({ ...page, [field]: value });
   };
 
-  const handleParagraphChange = (id: string, field: keyof Paragraph, value: any) => {
+  const handleParagraphChange = <K extends keyof Paragraph>(id: string, field: K, value: Paragraph[K]) => {
     if (!page.paragraphs) return;
     const updated = page.paragraphs.map(p => p.id === id ? { ...p, [field]: value } : p);
     handleChange('paragraphs', updated);
@@ -31,7 +32,7 @@ export const ArticleContentSection: React.FC<SectionProps> = ({ page, onUpdate, 
   };
 
   const addParagraph = () => {
-    const newP: Paragraph = { id: `p-${Date.now()}`, en: '', zh: '' };
+    const newP: Paragraph = { id: nextParagraphId(), en: '', zh: '' };
     const currentP = page.paragraphs || [];
     handleChange('paragraphs', [...currentP, newP]);
   };

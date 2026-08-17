@@ -148,6 +148,10 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
     },
   });
 
+  // 始终持有最新 editor 引用，供卸载清理使用（useEffect [] 只捕获首次渲染值）
+  const leftEditorRef = useRef<ReturnType<typeof useEditor>>(null);
+  leftEditorRef.current = leftEditor;
+
   // Only reset content when switching pages or when editor is NOT actively focused
   useEffect(() => {
     if (!leftEditor) return;
@@ -227,6 +231,19 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
   useEffect(() => {
     return () => {
       const currentPageId = activePageIdRef.current;
+      const editor = leftEditorRef.current;
+      // 先冲刷主文章 leftContent 的 pending（250ms 防抖内未落盘的正文），防止切页/卸载丢字
+      if (editor && currentPageId && activePageIdRef.current === pageRef.current.id) {
+        try {
+          const latest = editor.getHTML();
+          if (latest && latest !== leftContentRef.current) {
+            leftContentRef.current = latest;
+            onUpdateRef.current({ ...pageRef.current, leftContent: latest });
+          }
+        } catch {
+          // 编辑器已在卸载阶段销毁时跳过
+        }
+      }
       const pending = localCommentsByPageRef.current[currentPageId];
       if (pending && Object.keys(pending).length > 0) {
         const baseAnns = pageRef.current.annotations || [];
@@ -253,7 +270,7 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
     flushAll(leftEditor);
   }, [leftEditor, flushAll]);
 
-  const handleChange = (field: keyof PageData, value: any) => {
+  const handleChange = <K extends keyof PageData>(field: K, value: PageData[K]) => {
     onUpdateRef.current({ ...pageRef.current, [field]: value });
   };
 

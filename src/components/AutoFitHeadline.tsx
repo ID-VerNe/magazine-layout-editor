@@ -49,17 +49,25 @@ const AutoFitHeadline: React.FC<AutoFitHeadlineProps> = ({
   }, [text, fontSize, lineHeight, maxLines, minSize, version]);
 
   useEffect(() => {
+    // 关键：观察父容器而非自身。字号变化只会改变元素自身高度，
+    // 不影响父容器宽度，因此缩放后不会再次触发 observer，彻底消除
+    // “改字号 → 尺寸变 → 触发重测 → 又改字号”的自反馈震荡（layout thrash）。
+    // 父容器尺寸变化（窗口缩放/布局变更）、字体加载、超时仍会触发重测。
+    const parent = ref.current?.parentElement;
     if (document.fonts) {
       document.fonts.ready.then(() => setVersion(v => v + 1));
     }
-    const observer = new ResizeObserver(() => setVersion(v => v + 1));
-    if (ref.current) observer.observe(ref.current);
+    let observer: ResizeObserver | undefined;
+    if (parent) {
+      observer = new ResizeObserver(() => setVersion(v => v + 1));
+      observer.observe(parent);
+    }
     const timeout = setTimeout(() => setVersion(v => v + 1), 500);
     return () => {
-      observer.disconnect();
+      observer?.disconnect();
       clearTimeout(timeout);
     };
-  }, [text]);
+  }, [text, maxSize, maxLines]);
 
   return (
     <Tag 

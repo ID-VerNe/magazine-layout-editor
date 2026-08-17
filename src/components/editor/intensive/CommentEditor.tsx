@@ -1,7 +1,7 @@
 import React, { memo, useRef, useEffect, useCallback } from 'react';
-import DOMPurify from 'dompurify';
 import { X } from 'lucide-react';
 import { ExternalAnnotation, CustomFont } from '../../../types';
+import { sanitizeComment } from '../../../utils/sanitize';
 
 interface CommentEditorProps {
   annotation: ExternalAnnotation;
@@ -11,6 +11,8 @@ interface CommentEditorProps {
   customFonts: CustomFont[];
   onSetAnnotationFontSize: (id: string, size: string) => void;
 }
+
+// 富文本评论的消毒统一走 src/utils/sanitize.ts 的 sanitizeComment（白名单见该文件）
 
 export const CommentEditor = memo(({
   annotation,
@@ -32,7 +34,7 @@ export const CommentEditor = memo(({
   // Initialize content on mount only.
   useEffect(() => {
     if (editorRef.current) {
-      editorRef.current.innerHTML = DOMPurify.sanitize(annotation.comment || '');
+      editorRef.current.innerHTML = sanitizeComment(annotation.comment || '');
     }
   }, []);
 
@@ -43,7 +45,7 @@ export const CommentEditor = memo(({
         clearTimeout(timeoutRef.current);
       }
       if (editorRef.current) {
-        const currentHtml = editorRef.current.innerHTML;
+        const currentHtml = sanitizeComment(editorRef.current.innerHTML);
         if (currentHtml !== lastFlushedCommentRef.current) {
           onUpdateRef.current(annotation.id, currentHtml);
         }
@@ -59,7 +61,7 @@ export const CommentEditor = memo(({
       return;
     }
     if (annotation.comment !== lastExternalCommentRef.current) {
-      editorRef.current.innerHTML = DOMPurify.sanitize(annotation.comment || '');
+      editorRef.current.innerHTML = sanitizeComment(annotation.comment || '');
       lastExternalCommentRef.current = annotation.comment;
       lastFlushedCommentRef.current = annotation.comment;
     }
@@ -71,7 +73,7 @@ export const CommentEditor = memo(({
       timeoutRef.current = null;
     }
     if (editorRef.current) {
-      const html = editorRef.current.innerHTML;
+      const html = sanitizeComment(editorRef.current.innerHTML);
       lastFlushedCommentRef.current = html;
       onUpdate(annotation.id, html);
     }
@@ -81,7 +83,7 @@ export const CommentEditor = memo(({
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
       if (editorRef.current) {
-        const html = editorRef.current.innerHTML;
+        const html = sanitizeComment(editorRef.current.innerHTML);
         lastFlushedCommentRef.current = html;
         onUpdate(annotation.id, html);
       }
@@ -92,6 +94,17 @@ export const CommentEditor = memo(({
     isFocusedRef.current = false;
     flushNow();
   }, [flushNow]);
+
+  // 粘贴时对富文本做白名单消毒，阻断 <img onerror> / <svg onload> 等活 XSS 进入 contentEditable
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain');
+    const html = e.clipboardData.getData('text/html');
+    const clean = sanitizeComment(html || text);
+    if (!editorRef.current || !clean) return;
+    document.execCommand('insertHTML', false, clean);
+    handleInput();
+  }, [handleInput]);
 
   const applyStyle = useCallback((prop: 'fontSize' | 'fontFamily', value: string) => {
     const el = editorRef.current;
@@ -187,6 +200,7 @@ export const CommentEditor = memo(({
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}
+        onPaste={handlePaste}
         onFocus={() => { isFocusedRef.current = true; }}
         onBlur={handleBlur}
       />

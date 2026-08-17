@@ -2,7 +2,7 @@ import React from 'react';
 import { TemplateProps } from '../../types';
 import AutoFitHeadline from '../AutoFitHeadline';
 import { formatMagazineText } from '../../utils/formatter';
-import { FooterDisplay } from './SharedComponents';
+import { FooterDisplay, QuoteBlock } from './SharedComponents';
 import { getImagePositionStyles } from '../../utils/imageUtils';
 
 export default function ImpactBold({ page, pageIndex, totalPages }: TemplateProps) {
@@ -61,20 +61,13 @@ export default function ImpactBold({ page, pageIndex, totalPages }: TemplateProp
             </span>
           </div>
 
-          {(page.quoteEn || page.quoteZh) && (
-            <div className="max-w-2xl border-t-2 border-white/20 pt-8 space-y-4 mt-4">
-              {page.quoteEn && (
-                <p className="text-xl italic font-medium opacity-90 leading-relaxed whitespace-pre-wrap" style={{ fontFamily: page.quoteEnFont || "'Inter', sans-serif" }}>
-                  {formatMagazineText(page.quoteEn)}
-                </p>
-              )}
-              {page.quoteZh && (
-                <p className="text-2xl font-light opacity-80 leading-snug whitespace-pre-wrap" style={{ fontFamily: page.quoteZhFont || "'Crimson Pro', serif" }}>
-                  {formatMagazineText(page.quoteZh)}
-                </p>
-              )}
-            </div>
-          )}
+          <div className="max-w-2xl border-t-2 border-white/20 pt-8 space-y-4 mt-4">
+            <QuoteBlock
+              page={page}
+              enClassName="text-xl italic font-medium opacity-90 leading-relaxed whitespace-pre-wrap"
+              zhClassName="text-2xl font-light opacity-80 leading-snug whitespace-pre-wrap"
+            />
+          </div>
         </div>
       </div>
       <FooterDisplay page={page} pageIndex={pageIndex} totalPages={totalPages} />

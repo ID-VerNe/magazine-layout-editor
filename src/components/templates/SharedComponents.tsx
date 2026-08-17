@@ -3,6 +3,42 @@ import { PageData } from '../../types';
 import { formatMagazineText } from '../../utils/formatter';
 import { getImagePositionStyles } from '../../utils/imageUtils';
 import { isDarkColor } from '../../utils/colorUtils';
+import { DEFAULT_PAPER, DEFAULT_ACCENT } from '../../utils/themeConstants';
+
+/**
+ * 引言双行块（英 / 中对照）。
+ * 统一 quoteEn/quoteZh 的条件渲染、字体回退与 formatMagazineText 格式化，
+ * 各模板只需传视觉 class，消除多处重复实现。
+ */
+export const QuoteBlock: React.FC<{
+  page: PageData;
+  containerClassName?: string;
+  enClassName?: string;
+  zhClassName?: string;
+  enPrefix?: string; // 如 "> " 附加在英文引言前
+}> = ({ page, containerClassName = '', enClassName = '', zhClassName = '', enPrefix = '' }) => {
+  if (!(page.quoteEn || page.quoteZh)) return null;
+  return (
+    <div className={containerClassName}>
+      {page.quoteEn && (
+        <p
+          className={enClassName}
+          style={{ fontFamily: page.quoteEnFont || "'Inter', sans-serif" }}
+        >
+          {formatMagazineText(enPrefix ? `${enPrefix}${page.quoteEn}` : page.quoteEn)}
+        </p>
+      )}
+      {page.quoteZh && (
+        <p
+          className={zhClassName}
+          style={{ fontFamily: page.quoteZhFont || "'Crimson Pro', serif" }}
+        >
+          {formatMagazineText(page.quoteZh)}
+        </p>
+      )}
+    </div>
+  );
+};
 
 export const CoverBadgeLogo: React.FC<{ page: PageData }> = ({ page }) => {
   if (page.type !== 'cover' || (!page.featuredText && !page.logo)) return null;
@@ -93,7 +129,7 @@ export const FooterDisplay: React.FC<{ page: PageData; pageIndex: number; totalP
   totalPages,
 }) => {
   const layout = page.layoutId;
-  const bgColor = page.backgroundColor || '#FAF9F4';
+  const bgColor = page.backgroundColor || DEFAULT_PAPER;
   const isDark = isDarkColor(bgColor);
 
   const showDisclaimer = !page.hideDisclaimer;
@@ -158,7 +194,7 @@ export const FooterDisplay: React.FC<{ page: PageData; pageIndex: number; totalP
       className={`px-10 flex flex-col text-lg z-20 mt-auto transition-all duration-500 ${styles.container} pt-6 pb-6`}
       style={{
         fontFamily: page.footerFont || "'Inter', sans-serif",
-        backgroundColor: page.backgroundColor || '#FAF9F4',
+        backgroundColor: page.backgroundColor || DEFAULT_PAPER,
       }}
     >
       {hasTopContent && (

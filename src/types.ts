@@ -52,6 +52,7 @@ export interface PageData {
   footerRightY?: number;
   splitRatio?: number; // 英文占比，默认 64
   fontBalance?: number; // 调整语种间的相对大小，默认 0
+  coverContentMode?: 'quote' | 'split'; // classic-cover 正文模式：引言或双栏
   imageConfig?: ImageConfig;
   titleEn: string;
   titleZh: string;

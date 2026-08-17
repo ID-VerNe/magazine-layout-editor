@@ -1,7 +1,28 @@
 import { ProjectData, CustomFont, PageData, PageSize, PageType, Paragraph, ExternalAnnotation, ImageConfig } from '../types';
+import { COVER_CONTENT_MODES } from './coverMode';
 
 const VALID_PAGE_SIZES: PageSize[] = ['A4', '9:15', 'Unlimited'];
 const VALID_PAGE_TYPES: PageType[] = ['cover', 'article'];
+
+// 安全的对象键/主键校验：禁止 __proto__、constructor、prototype，避免原型污染
+const SAFE_ID_RE = /^(?!__proto__$|constructor$|prototype$)[A-Za-z0-9_$:-]{1,64}$/;
+
+function sanitizeId(value: any, fallback: () => string): string {
+  if (typeof value === 'string') {
+    const v = value.trim();
+    if (v && SAFE_ID_RE.test(v)) return v;
+  }
+  return fallback();
+}
+
+// 图片/Logo 的 URL 协议白名单：仅允许受信协议（data 图片 / http(s) / blob），
+// 防止 javascript: 等不可信协议流入渲染上下文（纵深防御）。
+function sanitizeImageUrl(value: any): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const v = value.trim();
+  if (v && /^(data:image\/[a-z0-9+.-]+;base64,|https?:\/\/|blob:)/i.test(v)) return v;
+  return undefined;
+}
 
 export function serializeProject(pages: PageData[], customFonts: CustomFont[], pageSize: PageSize): ProjectData {
   return {
@@ -30,7 +51,7 @@ function sanitizeParagraphs(input: any): Paragraph[] | undefined {
   return input
     .filter(p => p && typeof p === 'object')
     .map((p, idx) => ({
-      id: typeof p.id === 'string' && p.id ? p.id : `p-${Date.now()}-${idx}`,
+      id: sanitizeId(p.id, () => `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
       en: typeof p.en === 'string' ? p.en : '',
       zh: typeof p.zh === 'string' ? p.zh : '',
       enFont: typeof p.enFont === 'string' ? p.enFont : undefined,
@@ -44,7 +65,7 @@ function sanitizeAnnotations(input: any): ExternalAnnotation[] | undefined {
   return input
     .filter(a => a && typeof a === 'object')
     .map((a, idx) => ({
-      id: typeof a.id === 'string' && a.id ? a.id : `ann-${Date.now()}-${idx}`,
+      id: sanitizeId(a.id, () => `ann-${Date.now()}-${idx}`),
       seq: typeof a.seq === 'number' ? a.seq : idx + 1,
       text: typeof a.text === 'string' ? a.text : '',
       from: typeof a.from === 'number' ? a.from : 0,
@@ -80,7 +101,7 @@ function sanitizePage(page: any, index: number): PageData {
   }
 
   const type: PageType = VALID_PAGE_TYPES.includes(page.type) ? page.type : 'cover';
-  const id = typeof page.id === 'string' && page.id.trim() ? page.id : `page-${Date.now()}-${index}`;
+  const id = sanitizeId(page.id, () => `page-${Date.now()}-${index}`);
   const layoutId = typeof page.layoutId === 'string' && page.layoutId.trim()
     ? page.layoutId
     : (type === 'cover' ? 'classic-cover' : 'classic-article');
@@ -92,8 +113,8 @@ function sanitizePage(page: any, index: number): PageData {
     layoutId,
     lastCoverLayoutId: typeof page.lastCoverLayoutId === 'string' ? page.lastCoverLayoutId : undefined,
     lastArticleLayoutId: typeof page.lastArticleLayoutId === 'string' ? page.lastArticleLayoutId : undefined,
-    image: typeof page.image === 'string' ? page.image : '',
-    logo: typeof page.logo === 'string' ? page.logo : undefined,
+    image: sanitizeImageUrl(page.image) || '',
+    logo: sanitizeImageUrl(page.logo),
     logoSize: typeof page.logoSize === 'number' ? page.logoSize : undefined,
     logoX: typeof page.logoX === 'number' ? page.logoX : undefined,
     logoY: typeof page.logoY === 'number' ? page.logoY : undefined,
@@ -106,12 +127,13 @@ function sanitizePage(page: any, index: number): PageData {
     imagePosition: ['middle', 'bottom', 'absolute-bottom'].includes(page.imagePosition) ? page.imagePosition : undefined,
     footerSwap: typeof page.footerSwap === 'boolean' ? page.footerSwap : undefined,
     footerRightType: ['text', 'logo'].includes(page.footerRightType) ? page.footerRightType : undefined,
-    footerLogo: typeof page.footerLogo === 'string' ? page.footerLogo : undefined,
+    footerLogo: sanitizeImageUrl(page.footerLogo),
     footerLogoSize: typeof page.footerLogoSize === 'number' ? page.footerLogoSize : undefined,
     footerRightX: typeof page.footerRightX === 'number' ? page.footerRightX : undefined,
     footerRightY: typeof page.footerRightY === 'number' ? page.footerRightY : undefined,
     splitRatio: typeof page.splitRatio === 'number' ? page.splitRatio : undefined,
     fontBalance: typeof page.fontBalance === 'number' ? page.fontBalance : undefined,
+    coverContentMode: COVER_CONTENT_MODES.includes(page.coverContentMode) ? page.coverContentMode : undefined,
     imageConfig: sanitizeImageConfig(page.imageConfig),
     titleEn: typeof page.titleEn === 'string' ? page.titleEn : '',
     titleZh: typeof page.titleZh === 'string' ? page.titleZh : '',
@@ -151,14 +173,37 @@ function sanitizeFonts(fonts: any): CustomFont[] {
     .map(f => {
       const cleanName = String(f.name).slice(0, 100);
       const cleanFamily = String(f.family).replace(/[^a-zA-Z0-9_\-\s]/g, '').trim().slice(0, 100);
-      const rawDataUrl = typeof f.dataUrl === 'string' ? f.dataUrl : undefined;
-      const cleanDataUrl = rawDataUrl ? rawDataUrl.replace(/["'\n\r;{}]/g, '').trim() : undefined;
+      const rawDataUrl = typeof f.dataUrl === 'string' ? f.dataUrl.trim() : '';
+      // 只剥离引号/花括号/换行；保留 data URL 中合法的 `;`（如 ;base64,）
+      const cleaned = rawDataUrl.replace(/["'\n\r{}]/g, '');
+      const dataUrl = cleaned.startsWith('data:') ? cleaned : undefined;
       return {
         name: cleanName,
         family: cleanFamily || `custom-font-${Date.now()}`,
-        dataUrl: cleanDataUrl,
+        dataUrl,
       };
     });
+}
+
+// 对反序列化的项目对象执行统一清洗（导入文件与 IndexedDB 读取共用同一入口，
+// 避免 DB 路径绕过白名单导致脏/旧结构残留）
+export function sanitizeProjectData(raw: any): ProjectData {
+  const pages: PageData[] = Array.isArray(raw?.pages)
+    ? raw.pages.map((p: any, idx: number) => sanitizePage(p, idx))
+    : [];
+  const customFonts: CustomFont[] = Array.isArray(raw?.customFonts) ? sanitizeFonts(raw?.customFonts) : [];
+
+  let pageSize: PageSize = 'A4';
+  if (raw?.settings && typeof raw.settings === 'object' && VALID_PAGE_SIZES.includes(raw.settings.pageSize)) {
+    pageSize = raw.settings.pageSize;
+  }
+
+  return {
+    version: typeof raw?.version === 'string' ? raw.version : '1.0',
+    pages,
+    customFonts,
+    settings: { pageSize },
+  };
 }
 
 export function parseProjectFile(file: File): Promise<ProjectData> {
@@ -180,22 +225,7 @@ export function parseProjectFile(file: File): Promise<ProjectData> {
           throw new Error('Invalid project format: pages array is missing or empty.');
         }
 
-        const pages: PageData[] = parsed.pages.map((p: any, idx: number) => sanitizePage(p, idx));
-        const customFonts: CustomFont[] = sanitizeFonts(parsed.customFonts);
-        
-        let pageSize: PageSize = 'A4';
-        if (parsed.settings && typeof parsed.settings === 'object' && VALID_PAGE_SIZES.includes(parsed.settings.pageSize)) {
-          pageSize = parsed.settings.pageSize;
-        }
-
-        const projectData: ProjectData = {
-          version: typeof parsed.version === 'string' ? parsed.version : '1.0',
-          pages,
-          customFonts,
-          settings: { pageSize },
-        };
-
-        resolve(projectData);
+        resolve(sanitizeProjectData(parsed));
       } catch (err: any) {
         reject(new Error(err.message || 'Failed to parse project file.'));
       }

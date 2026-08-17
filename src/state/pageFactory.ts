@@ -4,8 +4,12 @@ import {
   DEFAULT_ARTICLE_TEMPLATE_ID,
   getTemplateById,
 } from '../config/templates';
+import { DEFAULT_ACCENT, DEFAULT_PAPER, DEFAULT_FONTS, DEFAULT_LINE_HEIGHT, DEFAULT_PARAGRAPH_SPACING } from '../utils/themeConstants';
 
 const nowId = () => `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+// 段落 id：带时间戳 + 随机分量，避免同毫秒内连续新增/新建页产生重复 key
+export const nextParagraphId = () => `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 const basePageDefaults = (): Omit<PageData, 'id' | 'type' | 'layoutId'> => ({
   image: 'https://picsum.photos/id/43/1200/1600',
@@ -14,10 +18,10 @@ const basePageDefaults = (): Omit<PageData, 'id' | 'type' | 'layoutId'> => ({
   byline: 'By Author Name | PUBLICATION',
   footerLeft: 'Footer Left Label',
   footerRight: 'Footer Right Label',
-  lineHeight: 1.6,
-  paragraphSpacing: 32,
-  backgroundColor: '#FAF9F4',
-  accentColor: '#367237',
+  lineHeight: DEFAULT_LINE_HEIGHT,
+  paragraphSpacing: DEFAULT_PARAGRAPH_SPACING,
+  backgroundColor: DEFAULT_PAPER,
+  accentColor: DEFAULT_ACCENT,
   splitRatio: 64,
   fontBalance: 0,
   footerSwap: false,
@@ -25,15 +29,15 @@ const basePageDefaults = (): Omit<PageData, 'id' | 'type' | 'layoutId'> => ({
   footerLogoSize: 24,
   footerRightX: 0,
   footerRightY: 0,
-  titleEnFont: "'Inter', sans-serif",
-  titleZhFont: "'Crimson Pro', serif",
-  paragraphEnFont: "'Inter', sans-serif",
-  paragraphZhFont: "'Crimson Pro', serif",
-  bylineFont: "'Inter', sans-serif",
-  footerFont: "'Inter', sans-serif",
-  footnoteFont: "'Inter', sans-serif",
-  quoteEnFont: "'Inter', sans-serif",
-  quoteZhFont: "'Crimson Pro', serif",
+  titleEnFont: DEFAULT_FONTS.en,
+  titleZhFont: DEFAULT_FONTS.zh,
+  paragraphEnFont: DEFAULT_FONTS.en,
+  paragraphZhFont: DEFAULT_FONTS.zh,
+  bylineFont: DEFAULT_FONTS.en,
+  footerFont: DEFAULT_FONTS.en,
+  footnoteFont: DEFAULT_FONTS.en,
+  quoteEnFont: DEFAULT_FONTS.en,
+  quoteZhFont: DEFAULT_FONTS.zh,
 });
 
 const coverDefaults = (): Partial<PageData> => ({
@@ -47,7 +51,7 @@ const coverDefaults = (): Partial<PageData> => ({
 const articleDefaults = (): Partial<PageData> => ({
   type: 'article',
   layoutId: DEFAULT_ARTICLE_TEMPLATE_ID,
-  paragraphs: [{ id: `p-${Date.now()}`, en: 'Start writing...', zh: '开始写作...' }],
+  paragraphs: [{ id: nextParagraphId(), en: 'Start writing...', zh: '开始写作...' }],
 });
 
 export interface CreatePageOptions {
@@ -62,7 +66,7 @@ export const DEFAULT_INHERIT_FIELDS: Array<keyof PageData> = [
   'footerLeft', 'footerRight',
   'lineHeight', 'paragraphSpacing',
   'backgroundColor', 'accentColor',
-  'splitRatio', 'fontBalance',
+  'splitRatio', 'fontBalance', 'coverContentMode',
   'titleEnFont', 'titleZhFont', 'bylineFont',
   'quoteEnFont', 'quoteZhFont',
   'footerFont', 'paragraphEnFont', 'paragraphZhFont', 'footnoteFont',
@@ -111,12 +115,14 @@ export function createPageFromTemplate(options: CreatePageOptions = {}): PageDat
   }
 
   if (resolvedLayoutId === 'classic-cover') {
-    page.leftContent = '<p>Start typing the main article text here...</p>';
-    page.annotations = [];
+    page.coverContentMode = 'split';
+    // 双栏正文默认走段落模式：不初始化 leftContent，避免与新页面的段落双栏重复叠加渲染
+    page.leftContent = undefined;
+    page.annotations = undefined;
     page.annotationStyle = page.annotationStyle || 'dual';
     page.annotationTheme = page.annotationTheme || 'highlight';
     page.hideAnnotationSeq = page.hideAnnotationSeq || false;
-    page.paragraphs = page.paragraphs || [{ id: `p-${Date.now()}`, en: 'Start writing...', zh: '开始写作...' }];
+    page.paragraphs = page.paragraphs || [{ id: nextParagraphId(), en: 'Start writing...', zh: '开始写作...' }];
     page.quoteEn = undefined;
     page.quoteZh = undefined;
   }
@@ -130,7 +136,7 @@ export function createPageFromTemplate(options: CreatePageOptions = {}): PageDat
     }
 
     if (resolvedType === 'article' && resolvedLayoutId !== 'intensive-reading' && !page.paragraphs?.length) {
-      page.paragraphs = [{ id: `p-${Date.now()}`, en: 'New paragraph text in English.', zh: '新的中文段落文字。' }];
+      page.paragraphs = [{ id: nextParagraphId(), en: 'New paragraph text in English.', zh: '新的中文段落文字。' }];
     }
   }
 

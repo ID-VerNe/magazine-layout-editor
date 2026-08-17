@@ -3,10 +3,10 @@ import { PageData, CustomFont, PageType, PageSize } from '../types';
 import { getProject, saveProject } from '../utils/db';
 import { toPng } from 'html-to-image';
 import { useUI } from '../context/UIContext';
-import { createPageFromTemplate, getTemplateSpec } from '../state/pageFactory';
+import { createPageFromTemplate, getTemplateSpec, nextParagraphId } from '../state/pageFactory';
 import { createInitialProjectState, getCurrentPage, getCurrentPageIndex, projectReducer } from '../state/projectStore';
 import { assertProjectStateConsistency } from '../state/regressionChecks';
-import { serializeProject, exportProjectFile, parseProjectFile } from '../utils/projectSerializer';
+import { serializeProject, exportProjectFile, parseProjectFile, sanitizeProjectData } from '../utils/projectSerializer';
 
 export const registerFontInDOM = (family: string, dataUrl: string) => {
   if (!family || typeof family !== 'string' || !dataUrl || typeof dataUrl !== 'string') return;
@@ -17,16 +17,16 @@ export const registerFontInDOM = (family: string, dataUrl: string) => {
   const styleId = `style-${cleanFamily.replace(/\s+/g, '_')}`;
   if (document.getElementById(styleId)) return;
 
-  // Sanitize dataUrl: ensure no quotes, line breaks, or braces
-  const cleanDataUrl = dataUrl.replace(/["'\n\r;{}]/g, '').trim();
-  if (!cleanDataUrl) return;
+  // Sanitize dataUrl: 保留 data URL 中合法的 `;`（如 ;base64,），仅剥离引号/花括号/换行
+  const cleanedDataUrl = dataUrl.trim().replace(/["'\n\r{}]/g, '');
+  if (!cleanedDataUrl || !cleanedDataUrl.startsWith('data:')) return;
 
   const style = document.createElement('style');
   style.id = styleId;
   style.textContent = `
     @font-face {
       font-family: "${cleanFamily}";
-      src: url("${cleanDataUrl}");
+      src: url("${cleanedDataUrl}");
     }
   `;
   document.head.appendChild(style);
@@ -65,7 +65,9 @@ export function useProject(projectId: string | undefined, templateId: string | n
         const savedData = await getProject(projectId);
 
         if (savedData) {
-          const loadedFonts = savedData.customFonts || [];
+          // DB 读取复用一个清洗入口（同导入文件），避免绕过白名单残留脏/旧结构
+          const project = sanitizeProjectData(savedData);
+          const loadedFonts = project.customFonts ?? [];
           loadedFonts.forEach((font: CustomFont) => {
             if (font.dataUrl) registerFontInDOM(font.family, font.dataUrl);
           });
@@ -73,9 +75,11 @@ export function useProject(projectId: string | undefined, templateId: string | n
           dispatch({
             type: 'LOAD_PROJECT',
             payload: {
-              pages: savedData.pages || [createPageFromTemplate({ templateId: 'classic-cover' })],
+              pages: project.pages?.length
+                ? project.pages
+                : [createPageFromTemplate({ templateId: 'classic-cover' })],
               customFonts: loadedFonts,
-              pageSize: savedData.settings?.pageSize || 'A4',
+              pageSize: project.settings?.pageSize || 'A4',
             },
           });
           return;
@@ -223,7 +227,7 @@ export function useProject(projectId: string | undefined, templateId: string | n
               updatedPage.lastCoverLayoutId = originalPage.layoutId;
               updatedPage.layoutId = updatedPage.lastArticleLayoutId || 'classic-article';
               if (!updatedPage.paragraphs || updatedPage.paragraphs.length === 0) {
-                updatedPage.paragraphs = [{ id: `p-${Date.now()}`, en: '', zh: '' }];
+                updatedPage.paragraphs = [{ id: nextParagraphId(), en: '', zh: '' }];
               }
             } else {
               updatedPage.lastArticleLayoutId = originalPage.layoutId;

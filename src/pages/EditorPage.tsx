@@ -57,42 +57,44 @@ export default function EditorPage() {
   const saveToDBRef = useRef(saveToDB);
   saveToDBRef.current = saveToDB;
 
-  // Auto-save logic with safe promise error handling and flush on unmount
+  // 保存的 ref：生命周期兜底始终读到最新实现
+  const doSaveRef = useRef<() => void>(() => {});
+  doSaveRef.current = () => saveToDBRef.current(previewRef, { generateThumbnail: false });
+
+  // 自动保存（真正的防抖）：内容变化只重置 1s 定时器，最后一次变更后 1s 才写一次库，
+  // 避免每次输入都完整序列化写 IndexedDB 造成写放大。
   useEffect(() => {
-    let timeout: NodeJS.Timeout | null = null;
-    let pendingSave = false;
-
-    if (projectId && isLoaded) {
-      pendingSave = true;
-      timeout = setTimeout(() => {
-        pendingSave = false;
-        try {
-          const promise = saveToDBRef.current(previewRef, { generateThumbnail: false });
-          if (promise && typeof (promise as any).catch === 'function') {
-            (promise as any).catch((err: any) => console.error('Auto-save error:', err));
-          }
-        } catch (err) {
-          console.error('Auto-save sync error:', err);
+    if (!projectId || !isLoaded) return;
+    const timeout = setTimeout(() => {
+      try {
+        const promise = saveToDBRef.current(previewRef, { generateThumbnail: false });
+        if (promise && typeof (promise as any).catch === 'function') {
+          (promise as any).catch((err: any) => console.error('Auto-save error:', err));
         }
-      }, 1000);
-    }
-
-    return () => {
-      if (timeout) {
-        clearTimeout(timeout);
+      } catch (err) {
+        console.error('Auto-save sync error:', err);
       }
-      if (pendingSave && projectId && isLoaded) {
-        try {
-          const promise = saveToDBRef.current(previewRef, { generateThumbnail: false });
-          if (promise && typeof (promise as any).catch === 'function') {
-            (promise as any).catch((err: any) => console.error('Auto-save unmount flush error:', err));
-          }
-        } catch (err) {
-          console.error('Auto-save unmount flush sync error:', err);
-        }
-      }
-    };
+    }, 1000);
+    return () => clearTimeout(timeout);
   }, [pages, customFonts, pageSize, projectId, isLoaded, previewRef]);
+
+  // 生命周期兜底：关闭标签页 / 切到后台 / 离开编辑页时，把最后一次编辑立即落库（防丢失最后 1s）
+  useEffect(() => {
+    const onUnload = () => doSaveRef.current();
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') doSaveRef.current();
+    };
+    window.addEventListener('beforeunload', onUnload);
+    window.addEventListener('pagehide', onUnload);
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      window.removeEventListener('beforeunload', onUnload);
+      window.removeEventListener('pagehide', onUnload);
+      document.removeEventListener('visibilitychange', onHide);
+      // 组件卸载（离开编辑器路由）时冲刷最后一次编辑
+      doSaveRef.current();
+    };
+  }, []);
 
   // Outside click for export menu
   useEffect(() => {

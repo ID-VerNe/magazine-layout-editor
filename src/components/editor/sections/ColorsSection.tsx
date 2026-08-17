@@ -10,7 +10,7 @@ interface SectionProps {
 }
 
 export const ColorsSection: React.FC<SectionProps> = ({ page, onUpdate }) => {
-  const handleChange = (field: keyof PageData, value: any) => {
+  const handleChange = <K extends keyof PageData>(field: K, value: PageData[K]) => {
     onUpdate({ ...page, [field]: value });
   };
 

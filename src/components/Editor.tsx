@@ -2,6 +2,7 @@ import React from 'react';
 import { PageData, CustomFont } from '../types';
 import { AlertTriangle } from 'lucide-react';
 import { getTemplateSections, EditorSectionId } from '../config/templates';
+import { resolveCoverContentMode } from '../utils/coverMode';
 
 // Import Section Components
 import { LayoutSection } from './editor/sections/LayoutSection';
@@ -24,7 +25,11 @@ interface EditorProps {
 }
 
 const Editor: React.FC<EditorProps> = ({ page, onUpdate, customFonts, isOverflowing, enforceA4 }) => {
-  const activeSections = getTemplateSections(page.layoutId, page.type);
+  const activeSections: EditorSectionId[] =
+    (page.layoutId || (page.type === 'cover' ? 'classic-cover' : 'classic-article')) === 'classic-cover' &&
+    resolveCoverContentMode(page) === 'quote'
+      ? ['layout', 'image', 'headlines', 'cover-features', 'colors', 'footer']
+      : getTemplateSections(page.layoutId, page.type);
 
   const renderSection = (sectionId: EditorSectionId) => {
     switch (sectionId) {
