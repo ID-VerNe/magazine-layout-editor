@@ -5,6 +5,7 @@ import {
   getTemplateById,
 } from '../config/templates';
 import { DEFAULT_ACCENT, DEFAULT_PAPER, DEFAULT_FONTS, DEFAULT_LINE_HEIGHT, DEFAULT_PARAGRAPH_SPACING } from '../utils/themeConstants';
+import { clampSplitRatio, clampFontBalance } from '../utils/layoutMath';
 
 const nowId = () => `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -139,6 +140,12 @@ export function createPageFromTemplate(options: CreatePageOptions = {}): PageDat
       page.paragraphs = [{ id: nextParagraphId(), en: 'New paragraph text in English.', zh: '新的中文段落文字。' }];
     }
   }
+
+  // 输出前统一钳制双栏比例与字号平衡：DOM 层 / 继承的 sourcePage 可能带入越界值，
+  // 会在未经过 UI 滑块（即无范围约束）的路径（读档、序列化恢复、模板继承）下破坏整页布局，
+  // 这里与 layoutMath 的防御性兜底保持一致，回退到安全范围。
+  page.splitRatio = clampSplitRatio(page.splitRatio);
+  page.fontBalance = clampFontBalance(page.fontBalance);
 
   return page;
 }

@@ -24,9 +24,16 @@ const RICH_ALLOWED_ATTR = ['style', 'class', 'href', 'target', 'rel', 'data-anno
 /**
  * 富文本批注消毒（最窄白名单）。
  * 用于 CommentEditor 输入与模板渲染批注列。
+ * ALLOW_DATA_ATTR: false —— 批注是纯文本排版，不携带 data-* 语义信息，
+ * 显式关闭 DOMPurify 默认保留的 data-* 通道，收窄纵深攻击面
+ *（正文消毒 sanitizeRichContent 需保留 data-annotation-id/data-seq，故不关闭）。
  */
 export const sanitizeComment = (html: string) =>
-  DOMPurify.sanitize(html, { ALLOWED_TAGS: COMMENT_ALLOWED_TAGS, ALLOWED_ATTR: COMMENT_ALLOWED_ATTR });
+  DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: COMMENT_ALLOWED_TAGS,
+    ALLOWED_ATTR: COMMENT_ALLOWED_ATTR,
+    ALLOW_DATA_ATTR: false,
+  });
 
 /**
  * 编辑器正文消毒（含批注 mark 的宽白名单）。
