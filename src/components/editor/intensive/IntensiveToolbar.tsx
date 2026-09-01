@@ -63,6 +63,28 @@ export const ArticleToolbar: React.FC<ArticleToolbarProps> = ({
   hideAnnotationSeq,
   customFonts,
 }) => {
+  const { from, to } = editor.state.selection;
+  const hasSelection = from !== to;
+
+  // 字号/字体是 mark 类命令，必须有选中文本才生效。
+  // 无选区时给出明确提示，避免“选了没反应”的静默失败。
+  const handleStyleChange = (prop: 'fontSize' | 'fontFamily') => (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const v = e.target.value;
+    if (!hasSelection) {
+      const label = prop === 'fontFamily' ? '字体' : '字号';
+      window.alert(`请先在正文中选中要修改${label}的文字，再进行设置。`);
+      return;
+    }
+    const chain = editor.chain().focus();
+    if (prop === 'fontSize') {
+      if (v) chain.setFontSize(v).run();
+      else chain.unsetFontSize().run();
+    } else {
+      if (v) chain.setFontFamily(v).run();
+      else chain.unsetFontFamily().run();
+    }
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-1 p-1.5 bg-slate-100 rounded-lg shadow-inner">
       <div className="flex bg-slate-200 p-0.5 rounded mr-2">
@@ -141,13 +163,10 @@ export const ArticleToolbar: React.FC<ArticleToolbarProps> = ({
       <select
         value={editor.getAttributes('textStyle').fontSize || ''}
         aria-label="Article text font size"
-        onChange={(e) => {
-          const v = e.target.value;
-          if (v) editor.chain().focus().setFontSize(v).run();
-          else editor.chain().focus().unsetFontSize().run();
-        }}
-        className="text-xs px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#264376]/20 cursor-pointer"
-        title="Font size"
+        disabled={isAnnotateMode}
+        onChange={handleStyleChange('fontSize')}
+        className="text-xs px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#264376]/20 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+        title={isAnnotateMode ? '请先切换到 Edit Article 模式' : '字号：先选中文字再生效'}
       >
         <option value="">Size</option>
         <option value="12px">12</option>
@@ -160,13 +179,10 @@ export const ArticleToolbar: React.FC<ArticleToolbarProps> = ({
       <select
         value={editor.getAttributes('textStyle').fontFamily || ''}
         aria-label="Article text font family"
-        onChange={(e) => {
-          const v = e.target.value;
-          if (v) editor.chain().focus().setFontFamily(v).run();
-          else editor.chain().focus().unsetFontFamily().run();
-        }}
-        className="text-xs px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#264376]/20 cursor-pointer max-w-[150px]"
-        title="Font family"
+        disabled={isAnnotateMode}
+        onChange={handleStyleChange('fontFamily')}
+        className="text-xs px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#264376]/20 cursor-pointer max-w-[150px] disabled:opacity-40 disabled:cursor-not-allowed"
+        title={isAnnotateMode ? '请先切换到 Edit Article 模式' : '字体：先选中文字再生效'}
       >
         <option value="">Font</option>
         <option value="'Inter', sans-serif">Inter</option>
