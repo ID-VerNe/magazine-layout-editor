@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useRef } from 'react';
 import { Editor } from '@tiptap/react';
 import {
   Quote,
@@ -66,16 +66,31 @@ export const ArticleToolbar: React.FC<ArticleToolbarProps> = ({
   const { from, to } = editor.state.selection;
   const hasSelection = from !== to;
 
+  // 点击 <select> 会让编辑器失焦并可能折叠选区，onChange 时原选区已丢失。
+  // 这里始终记住最近一次有效的非折叠选区，供设置字号/字体时恢复。
+  const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
+  if (hasSelection) {
+    savedSelectionRef.current = { from, to };
+  }
+
   // 字号/字体是 mark 类命令，必须有选中文本才生效。
   // 无选区时给出明确提示，避免“选了没反应”的静默失败。
   const handleStyleChange = (prop: 'fontSize' | 'fontFamily') => (e: React.ChangeEvent<HTMLSelectElement>) => {
     const v = e.target.value;
-    if (!hasSelection) {
+    // 优先使用当前选区；若因失焦已折叠，则恢复最近一次保存的有效选区。
+    const sel = editor.state.selection;
+    const range = sel.from !== sel.to
+      ? { from: sel.from, to: sel.to }
+      : savedSelectionRef.current;
+    if (!range) {
       const label = prop === 'fontFamily' ? '字体' : '字号';
       window.alert(`请先在正文中选中要修改${label}的文字，再进行设置。`);
       return;
     }
     const chain = editor.chain().focus();
+    if (sel.from === sel.to) {
+      chain.setTextSelection(range);
+    }
     if (prop === 'fontSize') {
       if (v) chain.setFontSize(v).run();
       else chain.unsetFontSize().run();
@@ -85,8 +100,24 @@ export const ArticleToolbar: React.FC<ArticleToolbarProps> = ({
     }
   };
 
+  // 下拉框展开前再次记录选区（此刻编辑器尚未失焦），双保险。
+  const rememberSelection = () => {
+    const sel = editor.state.selection;
+    if (sel.from !== sel.to) {
+      savedSelectionRef.current = { from: sel.from, to: sel.to };
+    }
+  };
+
   return (
-    <div className="flex flex-wrap items-center gap-1 p-1.5 bg-slate-100 rounded-lg shadow-inner">
+    <div
+      className="flex flex-wrap items-center gap-1 p-1.5 bg-slate-100 rounded-lg shadow-inner"
+      onMouseDown={(e) => {
+        // 按钮等控件阻止默认聚焦，避免编辑器失焦导致选区丢失；
+        // <select> 需正常展开下拉故放行，选区通过 savedSelectionRef 恢复。
+        if ((e.target as HTMLElement).closest('select, option')) return;
+        e.preventDefault();
+      }}
+    >
       <div className="flex bg-slate-200 p-0.5 rounded mr-2">
         <button
           type="button"
@@ -164,6 +195,7 @@ export const ArticleToolbar: React.FC<ArticleToolbarProps> = ({
         value={editor.getAttributes('textStyle').fontSize || ''}
         aria-label="Article text font size"
         disabled={isAnnotateMode}
+        onMouseDown={rememberSelection}
         onChange={handleStyleChange('fontSize')}
         className="text-xs px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#264376]/20 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         title={isAnnotateMode ? '请先切换到 Edit Article 模式' : '字号：先选中文字再生效'}
@@ -180,6 +212,7 @@ export const ArticleToolbar: React.FC<ArticleToolbarProps> = ({
         value={editor.getAttributes('textStyle').fontFamily || ''}
         aria-label="Article text font family"
         disabled={isAnnotateMode}
+        onMouseDown={rememberSelection}
         onChange={handleStyleChange('fontFamily')}
         className="text-xs px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#264376]/20 cursor-pointer max-w-[150px] disabled:opacity-40 disabled:cursor-not-allowed"
         title={isAnnotateMode ? '请先切换到 Edit Article 模式' : '字体：先选中文字再生效'}
