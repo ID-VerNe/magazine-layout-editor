@@ -8,6 +8,7 @@ import { PageData, CustomFont, ExternalAnnotation } from '../../../types';
 import { Label } from '../../ui/Base';
 
 import { FontSize } from '../extensions/FontSize';
+import { FontFamily } from '../extensions/FontFamily';
 import { AnnotationMark } from '../extensions/AnnotationMark';
 import { ClickWordSelection } from '../extensions/ClickWordSelection';
 import { CommentEditor } from '../intensive/CommentEditor';
@@ -133,6 +134,7 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
     StarterKit,
     TextStyle,
     FontSize,
+    FontFamily,
     AnnotationMark,
     ClickWordSelection,
   ], []);
