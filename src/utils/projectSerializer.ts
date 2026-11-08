@@ -72,6 +72,7 @@ function sanitizeAnnotations(input: any): ExternalAnnotation[] | undefined {
       to: typeof a.to === 'number' ? a.to : 0,
       comment: typeof a.comment === 'string' ? a.comment : undefined,
       fontSize: typeof a.fontSize === 'string' ? a.fontSize : undefined,
+      displayText: typeof a.displayText === 'string' && a.displayText.trim() ? a.displayText : undefined,
     }));
 }
 

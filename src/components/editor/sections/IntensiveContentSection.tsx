@@ -193,6 +193,19 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
     onUpdateRef.current({ ...base, annotations });
   }, []);
 
+  // 单独维护词条展示文本：正文标记仍保留原文，仅批注列显示用户填写的原形
+  const handleSetAnnotationDisplayText = useCallback((id: string, text: string) => {
+    const base = pageRef.current;
+    const trimmed = text.trim();
+    const annotations = (base.annotations || []).map(a =>
+      a.id === id ? { ...a, displayText: trimmed || undefined } : a
+    );
+    const next = { ...base, annotations };
+    // 立即同步 ref，避免 250ms 正文防抖 flush 用旧快照覆盖掉这次修改
+    pageRef.current = next;
+    onUpdateRef.current(next);
+  }, []);
+
   useEffect(() => {
     if (leftEditor) {
       leftEditor.setEditable(!isAnnotateMode);
@@ -368,6 +381,7 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
                     hideSeq={page.hideAnnotationSeq}
                     customFonts={customFonts}
                     onSetAnnotationFontSize={handleSetAnnotationFontSize}
+                    onSetAnnotationDisplayText={handleSetAnnotationDisplayText}
                   />
                 ))
               )}

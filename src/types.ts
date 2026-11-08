@@ -8,6 +8,8 @@ export interface ExternalAnnotation {
   to: number;
   comment?: string;
   fontSize?: string;
+  /** 批注词条的展示文本（如原形 be 替代原文 is/are）；为空时回退到 text */
+  displayText?: string;
 }
 
 export interface Paragraph {

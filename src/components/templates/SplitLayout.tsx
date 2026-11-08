@@ -108,7 +108,7 @@ export const SplitIntensiveGrid: React.FC<{
           <div className="annotation-label">
             {!hideAnnotationSeq && <span className="annotation-seq">[{ann.seq}]</span>}{' '}
             <span className="annotation-word" style={ann.fontSize ? { fontSize: ann.fontSize } : undefined}>
-              {ann.text}
+              {ann.displayText || ann.text}
             </span>
           </div>
           <div

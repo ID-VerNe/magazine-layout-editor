@@ -39,6 +39,8 @@ export function extractAnnotationsFromDoc(
           to: pos + node.nodeSize,
           comment: oldAnn?.comment,
           fontSize: oldAnn?.fontSize,
+          // 展示文本（如原形）由用户手动维护，重新从文档提取时必须原样保留
+          displayText: oldAnn?.displayText,
         });
         map.set(id, extracted[extracted.length - 1]);
       }

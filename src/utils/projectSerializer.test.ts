@@ -51,7 +51,7 @@ describe('sanitizeProjectData（解析清洗，纯函数）', () => {
             { id: 'pa1', en: 'EN', zh: '中文', emphasis: true, enFont: 'Serif', zhFont: 'Sans' },
           ],
           annotations: [
-            { id: 'ann1', seq: 2, text: 'note', from: 0, to: 12, comment: '批注' },
+            { id: 'ann1', seq: 2, text: 'note', from: 0, to: 12, comment: '批注', displayText: 'be' },
           ],
         },
       ],
@@ -66,6 +66,7 @@ describe('sanitizeProjectData（解析清洗，纯函数）', () => {
     expect(out.pages[0].paragraphs![0].zh).toBe('中文');
     expect(out.pages[0].annotations![0].seq).toBe(2);
     expect(out.pages[0].annotations![0].comment).toBe('批注');
+    expect(out.pages[0].annotations![0].displayText).toBe('be');
   });
 
   it('畸形/缺字段输入具备容错：root 不是对象时仍产出空结构', () => {
