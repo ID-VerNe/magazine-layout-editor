@@ -1,5 +1,5 @@
-import React, { memo, useRef, useEffect, useCallback } from 'react';
-import { X } from 'lucide-react';
+import React, { memo, useRef, useEffect, useCallback, useState } from 'react';
+import { X, RotateCcw } from 'lucide-react';
 import { ExternalAnnotation, CustomFont } from '../../../types';
 import { sanitizeComment } from '../../../utils/sanitize';
 
@@ -10,6 +10,8 @@ interface CommentEditorProps {
   hideSeq?: boolean;
   customFonts: CustomFont[];
   onSetAnnotationFontSize: (id: string, size: string) => void;
+  /** 修改批注词条的展示文本（可填原形，如把 is/are 改为 be）；传空串表示恢复原文 */
+  onSetAnnotationDisplayText: (id: string, text: string) => void;
 }
 
 // 富文本评论的消毒统一走 src/utils/sanitize.ts 的 sanitizeComment（白名单见该文件）
@@ -21,6 +23,7 @@ export const CommentEditor = memo(({
   hideSeq,
   customFonts,
   onSetAnnotationFontSize,
+  onSetAnnotationDisplayText,
 }: CommentEditorProps) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -30,6 +33,48 @@ export const CommentEditor = memo(({
   const onUpdateRef = useRef(onUpdate);
 
   onUpdateRef.current = onUpdate;
+
+  // 词条展示文本（可编辑为原形）。未聚焦时跟随外部数据，聚焦时以本地草稿为准。
+  const [wordDraft, setWordDraft] = useState(annotation.displayText || annotation.text);
+  const wordFocusedRef = useRef(false);
+  const skipWordCommitRef = useRef(false);
+
+  useEffect(() => {
+    if (!wordFocusedRef.current) {
+      setWordDraft(annotation.displayText || annotation.text);
+    }
+  }, [annotation.displayText, annotation.text]);
+
+  const commitWordDraft = useCallback(() => {
+    if (skipWordCommitRef.current) {
+      skipWordCommitRef.current = false;
+      return;
+    }
+    const trimmed = wordDraft.trim();
+    // 与原文一致（或为空）时不存 displayText，统一回退到原文
+    const nextDisplay = trimmed && trimmed !== annotation.text ? trimmed : '';
+    if ((annotation.displayText || '') !== nextDisplay) {
+      onSetAnnotationDisplayText(annotation.id, nextDisplay);
+    }
+    setWordDraft(nextDisplay || annotation.text);
+  }, [annotation.id, annotation.text, annotation.displayText, onSetAnnotationDisplayText, wordDraft]);
+
+  const handleWordKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.currentTarget.blur();
+    } else if (e.key === 'Escape') {
+      // Esc 放弃本次修改并失焦，不写回数据
+      skipWordCommitRef.current = true;
+      setWordDraft(annotation.displayText || annotation.text);
+      e.currentTarget.blur();
+    }
+  }, [annotation.displayText, annotation.text]);
+
+  const resetWordDraft = useCallback(() => {
+    setWordDraft(annotation.text);
+    onSetAnnotationDisplayText(annotation.id, '');
+  }, [annotation.id, annotation.text, onSetAnnotationDisplayText]);
 
   // Initialize content on mount only.
   useEffect(() => {
@@ -131,8 +176,33 @@ export const CommentEditor = memo(({
 
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden bg-white mb-3 shadow-sm">
-      <div className="bg-slate-50 text-xs font-bold text-[#264376] p-2 border-b flex justify-between items-center gap-1">
-        <span className="min-w-0 truncate">{!hideSeq && `[${annotation.seq}] `}{annotation.text}</span>
+      <div className="bg-slate-50 text-xs font-bold text-[#264376] p-2 border-b flex flex-wrap justify-between items-center gap-1">
+        <div className="flex items-center gap-1 min-w-0 flex-1">
+          {!hideSeq && <span className="shrink-0">[{annotation.seq}]</span>}
+          <input
+            type="text"
+            value={wordDraft}
+            onChange={(e) => setWordDraft(e.target.value)}
+            onFocus={() => { wordFocusedRef.current = true; }}
+            onBlur={() => { wordFocusedRef.current = false; commitWordDraft(); }}
+            onKeyDown={handleWordKeyDown}
+            placeholder={annotation.text}
+            aria-label={`Word mark for ${annotation.text}`}
+            title="可直接改成原形/词典形（如把 is/are 改为 be），正文标记保留原文"
+            className="min-w-[96px] flex-1 bg-transparent border-b border-dashed border-slate-300 text-xs font-bold text-[#264376] py-0.5 focus:outline-none focus:border-[#264376] placeholder:text-slate-400"
+          />
+          {annotation.displayText && (
+            <button
+              type="button"
+              onClick={resetWordDraft}
+              className="p-1 rounded text-slate-400 hover:text-[#264376] hover:bg-slate-200/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376]"
+              title="恢复原文"
+              aria-label="Restore original text"
+            >
+              <RotateCcw size={12} aria-hidden="true" />
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-1 flex-wrap justify-end shrink-0">
           <select
             value={annotation.fontSize || ''}
@@ -212,9 +282,11 @@ export const CommentEditor = memo(({
     && prev.annotation.comment === next.annotation.comment
     && prev.annotation.text === next.annotation.text
     && prev.annotation.fontSize === next.annotation.fontSize
+    && prev.annotation.displayText === next.annotation.displayText
     && prev.hideSeq === next.hideSeq
     && prev.customFonts === next.customFonts
     && prev.onSetAnnotationFontSize === next.onSetAnnotationFontSize
+    && prev.onSetAnnotationDisplayText === next.onSetAnnotationDisplayText
     && prev.onUpdate === next.onUpdate
     && prev.onRemove === next.onRemove;
 });
