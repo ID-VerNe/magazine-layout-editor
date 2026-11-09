@@ -26,8 +26,15 @@ interface SectionProps {
   customFonts: CustomFont[];
 }
 
+// 正文初始占位文案。空文章如果默认进入 Annotate（只读）模式，用户看到
+// “Start typing…” 却打不出字，因此这里统一常量并按内容决定初始模式。
+const DEFAULT_LEFT_CONTENT = '<p>Start typing the main article text here...</p>';
+
+const hasArticleText = (html?: string) =>
+  !!html && html !== DEFAULT_LEFT_CONTENT && html.replace(/<[^>]*>/g, '').trim().length > 0;
+
 export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate, customFonts }) => {
-  const [isAnnotateMode, setIsAnnotateMode] = useState(true);
+  const [isAnnotateMode, setIsAnnotateMode] = useState(() => hasArticleText(page.leftContent));
   const pageRef = useRef(page);
   const onUpdateRef = useRef(onUpdate);
   onUpdateRef.current = onUpdate;
@@ -142,7 +149,7 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
   const leftEditor = useEditor({
     extensions,
     editable: !isAnnotateMode,
-    content: page.leftContent || '<p>Start typing the main article text here...</p>',
+    content: page.leftContent || DEFAULT_LEFT_CONTENT,
     onUpdate: ({ editor, transaction }) => {
       if (transaction?.getMeta('annotationUpdate')) return;
       if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
@@ -154,10 +161,26 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
   const leftEditorRef = useRef<ReturnType<typeof useEditor>>(null);
   leftEditorRef.current = leftEditor;
 
+  // 点击批注序号时滚回正文对应标记并短暂高亮，长文里不用再自己找 [3] 在哪
+  const handleFocusAnnotation = useCallback((id: string) => {
+    const editor = leftEditorRef.current;
+    if (!editor) return;
+    const dom = editor.view.dom.querySelector<HTMLElement>(
+      `mark[data-annotation-id="${id.replace(/["\\]/g, '\\$&')}"]`,
+    );
+    if (!dom) return;
+    dom.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    dom.classList.remove('annotation-flash');
+    // 读一次布局属性强制重排，保证连续点击同一标记时动画能重播
+    void dom.offsetWidth;
+    dom.classList.add('annotation-flash');
+    window.setTimeout(() => dom.classList.remove('annotation-flash'), 1200);
+  }, []);
+
   // Only reset content when switching pages or when editor is NOT actively focused
   useEffect(() => {
     if (!leftEditor) return;
-    const content = page.leftContent || '<p>Start typing the main article text here...</p>';
+    const content = page.leftContent || DEFAULT_LEFT_CONTENT;
     if (activePageIdRef.current !== page.id || (!leftEditor.isFocused && leftEditor.getHTML() !== content)) {
       leftEditor.commands.setContent(content);
       leftContentRef.current = content;
@@ -309,7 +332,7 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
   return (
     <section className="space-y-6">
       <div className="flex justify-between items-center">
-        <Label icon={MessageSquare} className="mb-0">Dual-Column Content</Label>
+        <Label icon={MessageSquare} className="mb-0">Article &amp; Comments</Label>
       </div>
 
       <div className="flex flex-col gap-6">
@@ -328,8 +351,13 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
           />
 
           <div className="border border-slate-200 rounded-xl overflow-hidden bg-white focus-within:ring-2 focus-within:ring-[#264376] flex flex-col min-h-[300px] relative">
-            <div className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 p-2 border-b flex justify-between items-center">
-              <span>Main Article</span>
+            <div className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 p-2 border-b flex justify-between items-center gap-2">
+              <span className="shrink-0">Main Article</span>
+              <span className="normal-case font-medium text-slate-400 truncate">
+                {isAnnotateMode
+                  ? 'Read-only · click a word or drag to select'
+                  : 'Editing · marks stay on the original text'}
+              </span>
             </div>
 
             <BubbleMenu
@@ -349,10 +377,10 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
               <button
                 type="button"
                 onClick={handleAddAnchor}
-                aria-label="Cite selection"
+                aria-label="Add a comment for the selected text"
                 className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-[#264376] hover:bg-slate-100 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376]"
               >
-                <LinkIcon size={14} aria-hidden="true" /> Cite
+                <LinkIcon size={14} aria-hidden="true" /> Add comment
               </button>
             </BubbleMenu>
 
@@ -372,7 +400,11 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
             </div>
             <div className="p-4 flex-1 overflow-y-auto">
               {activeAnnotations.length === 0 ? (
-                <div className="text-sm text-slate-500 italic text-center mt-10">Select a word in the main article to add a comment...</div>
+                <div className="text-sm text-slate-500 italic text-center mt-10 px-4">
+                  {isAnnotateMode
+                    ? 'Click a word in the article, then press “Add comment”.'
+                    : 'Switch to Annotate mode to add notes.'}
+                </div>
               ) : (
                 activeAnnotations.map(ann => (
                   <CommentEditor
@@ -384,6 +416,7 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
                     customFonts={customFonts}
                     onSetAnnotationFontSize={handleSetAnnotationFontSize}
                     onSetAnnotationDisplayText={handleSetAnnotationDisplayText}
+                    onFocusAnnotation={handleFocusAnnotation}
                   />
                 ))
               )}

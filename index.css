@@ -36,6 +36,26 @@ input[type=number] {
 .ProseMirror mark[data-annotation-id]:hover {
   opacity: 0.8;
 }
+/* 从批注列跳回正文对应标记时的短暂高亮 */
+@keyframes annotation-flash {
+  0% {
+    box-shadow: 0 0 0 3px rgba(38, 67, 118, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 3px rgba(38, 67, 118, 0);
+  }
+}
+.ProseMirror mark.annotation-flash {
+  animation: annotation-flash 1.2s ease-out;
+}
+
+/* contentEditable 没有原生 placeholder，批注为空时用伪元素给出输入提示 */
+.comment-body:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  font-style: italic;
+  pointer-events: none;
+}
 .ProseMirror blockquote {
   background-color: #f1f4ec;
   border-left: 4px solid #4a6c50;
