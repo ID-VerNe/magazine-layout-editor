@@ -12,6 +12,8 @@ interface CommentEditorProps {
   onSetAnnotationFontSize: (id: string, size: string) => void;
   /** 修改批注词条的展示文本（可填原形，如把 is/are 改为 be）；传空串表示恢复原文 */
   onSetAnnotationDisplayText: (id: string, text: string) => void;
+  /** 点击序号时回到正文中对应的标记处 */
+  onFocusAnnotation: (id: string) => void;
 }
 
 // 富文本评论的消毒统一走 src/utils/sanitize.ts 的 sanitizeComment（白名单见该文件）
@@ -24,6 +26,7 @@ export const CommentEditor = memo(({
   customFonts,
   onSetAnnotationFontSize,
   onSetAnnotationDisplayText,
+  onFocusAnnotation,
 }: CommentEditorProps) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,6 +78,17 @@ export const CommentEditor = memo(({
     setWordDraft(annotation.text);
     onSetAnnotationDisplayText(annotation.id, '');
   }, [annotation.id, annotation.text, onSetAnnotationDisplayText]);
+
+  // 删除会同时丢掉批注正文，有内容时先确认，避免误点即丢
+  const handleRemoveClick = useCallback(() => {
+    const liveText = editorRef.current
+      ? sanitizeComment(editorRef.current.innerHTML).replace(/<[^>]*>/g, '').trim()
+      : '';
+    if (liveText && !window.confirm(`Delete the note for "${annotation.displayText || annotation.text}"? Its note text will be lost.`)) {
+      return;
+    }
+    onRemove(annotation.id);
+  }, [annotation.displayText, annotation.id, annotation.text, onRemove]);
 
   // Initialize content on mount only.
   useEffect(() => {
@@ -176,9 +190,20 @@ export const CommentEditor = memo(({
 
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden bg-white mb-3 shadow-sm">
-      <div className="bg-slate-50 text-xs font-bold text-[#264376] p-2 border-b flex flex-wrap justify-between items-center gap-1">
-        <div className="flex items-center gap-1 min-w-0 flex-1">
-          {!hideSeq && <span className="shrink-0">[{annotation.seq}]</span>}
+      <div className="bg-slate-50 border-b">
+        {/* 词条行独占一行：长词组（如 scratched that itch）不会把“恢复原文”按钮挤掉 */}
+        <div className="flex items-center gap-1 px-2 pt-2">
+          {!hideSeq && (
+            <button
+              type="button"
+              onClick={() => onFocusAnnotation(annotation.id)}
+              className="shrink-0 text-xs font-bold text-slate-400 hover:text-[#264376] rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376]"
+              title="Jump to this mark in the article"
+              aria-label={`Jump to mark ${annotation.seq} in the article`}
+            >
+              [{annotation.seq}]
+            </button>
+          )}
           <input
             type="text"
             value={wordDraft}
@@ -187,29 +212,37 @@ export const CommentEditor = memo(({
             onBlur={() => { wordFocusedRef.current = false; commitWordDraft(); }}
             onKeyDown={handleWordKeyDown}
             placeholder={annotation.text}
-            aria-label={`Word mark for ${annotation.text}`}
-            title="可直接改成原形/词典形（如把 is/are 改为 be），正文标记保留原文"
-            className="min-w-[96px] flex-1 bg-transparent border-b border-dashed border-slate-300 text-xs font-bold text-[#264376] py-0.5 focus:outline-none focus:border-[#264376] placeholder:text-slate-400"
+            aria-label={`Word form shown in the comment column, selected text is ${annotation.text}`}
+            title="Edit the word form shown here (e.g. is/are → be). The article keeps the selected original text."
+            className="min-w-0 flex-1 bg-transparent border-b border-dashed border-slate-300 text-xs font-bold text-[#264376] py-0.5 focus:outline-none focus:border-[#264376] placeholder:text-slate-400"
           />
           {annotation.displayText && (
             <button
               type="button"
               onClick={resetWordDraft}
-              className="p-1 rounded text-slate-400 hover:text-[#264376] hover:bg-slate-200/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376]"
-              title="恢复原文"
-              aria-label="Restore original text"
+              className="shrink-0 p-1 rounded text-slate-400 hover:text-[#264376] hover:bg-slate-200/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#264376]"
+              title="Restore the original wording"
+              aria-label={`Restore original wording ${annotation.text}`}
             >
               <RotateCcw size={12} aria-hidden="true" />
             </button>
           )}
         </div>
-        <div className="flex items-center gap-1 flex-wrap justify-end shrink-0">
+        {/* 词条被改写时始终显示原文，不必先点还原才能确认改的是哪个词形的原文 */}
+        {annotation.displayText && (
+          <p className="px-2 pt-0.5 text-[10px] leading-tight text-slate-400">
+            Original: <span className="line-through">{annotation.text}</span>
+          </p>
+        )}
+        {/* 控件行：用可见标签区分「词条字号」与「批注字号/字体」 */}
+        <div className="flex flex-wrap items-center gap-1 px-2 pt-1.5 pb-2">
+          <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Word</span>
           <select
             value={annotation.fontSize || ''}
             onChange={(e) => onSetAnnotationFontSize(annotation.id, e.target.value)}
-            aria-label="Word mark font size"
+            aria-label="Word font size"
             className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-amber-50 text-slate-700 focus:outline-none cursor-pointer"
-            title="Word mark font size in comment column"
+            title="Font size of the word shown in the comment column"
           >
             <option value="">Size</option>
             <option value="12px">12</option>
@@ -219,12 +252,14 @@ export const CommentEditor = memo(({
             <option value="20px">20</option>
             <option value="24px">24</option>
           </select>
+          <div className="w-px h-3 bg-slate-300 mx-0.5" />
+          <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Note</span>
           <select
             defaultValue=""
-            aria-label="Comment text font size"
+            aria-label="Note text font size"
             onChange={(e) => { const v = e.target.value; if (v) applyStyle('fontSize', v); e.target.value = ''; }}
             className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-white text-slate-700 focus:outline-none cursor-pointer"
-            title="Font size"
+            title="Font size for selected note text"
           >
             <option value="" disabled>Size</option>
             <option value="12px">12</option>
@@ -236,10 +271,10 @@ export const CommentEditor = memo(({
           </select>
           <select
             defaultValue=""
-            aria-label="Comment text font family"
+            aria-label="Note text font family"
             onChange={(e) => { const v = e.target.value; if (v) applyStyle('fontFamily', v); e.target.value = ''; }}
             className="text-[10px] px-1 py-0.5 rounded border border-slate-200 bg-white text-slate-700 focus:outline-none cursor-pointer max-w-[110px]"
-            title="Font family"
+            title="Font family for selected note text"
           >
             <option value="" disabled>Font</option>
             <option value="'Inter', sans-serif">Inter</option>
@@ -249,13 +284,12 @@ export const CommentEditor = memo(({
               <option key={f.family} value={f.family}>{f.name}</option>
             ))}
           </select>
-          <div className="w-px h-3 bg-slate-300 mx-0.5" />
           <button
             type="button"
-            onClick={() => onRemove(annotation.id)}
-            className="p-1 rounded text-red-500 hover:text-red-700 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
-            title="Remove annotation"
-            aria-label={`Remove annotation for ${annotation.text}`}
+            onClick={handleRemoveClick}
+            className="ml-auto shrink-0 p-1 rounded text-red-500 hover:text-red-700 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+            title="Remove this mark and its note"
+            aria-label={`Remove mark ${annotation.seq} and its note`}
           >
             <X size={12} aria-hidden="true" />
           </button>
@@ -265,8 +299,9 @@ export const CommentEditor = memo(({
         ref={editorRef}
         role="textbox"
         aria-multiline="true"
-        aria-label={`Comment text for ${annotation.text}`}
-        className="p-2 prose prose-sm max-w-none focus:outline-none min-h-[60px]"
+        aria-label={`Note text for ${annotation.text}`}
+        data-placeholder="Write a note…"
+        className="comment-body p-2 prose prose-sm max-w-none focus:outline-none min-h-[60px]"
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}
@@ -287,6 +322,7 @@ export const CommentEditor = memo(({
     && prev.customFonts === next.customFonts
     && prev.onSetAnnotationFontSize === next.onSetAnnotationFontSize
     && prev.onSetAnnotationDisplayText === next.onSetAnnotationDisplayText
+    && prev.onFocusAnnotation === next.onFocusAnnotation
     && prev.onUpdate === next.onUpdate
     && prev.onRemove === next.onRemove;
 });
