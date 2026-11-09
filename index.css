@@ -49,6 +49,12 @@ input[type=number] {
   animation: annotation-flash 1.2s ease-out;
 }
 
+/* 从正文点击标记跳回批注列卡片时的短暂高亮 */
+.annotation-card-flash {
+  animation: annotation-flash 1.2s ease-out;
+  border-radius: 0.5rem;
+}
+
 /* contentEditable 没有原生 placeholder，批注为空时用伪元素给出输入提示 */
 .comment-body:empty::before {
   content: attr(data-placeholder);

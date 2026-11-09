@@ -3,7 +3,7 @@ import { EditorContent, useEditor, Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyle } from '@tiptap/extension-text-style';
-import { MessageSquare, Link as LinkIcon } from 'lucide-react';
+import { MessageSquare, Link as LinkIcon, X } from 'lucide-react';
 import { PageData, CustomFont, ExternalAnnotation } from '../../../types';
 import { Label } from '../../ui/Base';
 
@@ -51,6 +51,11 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
   const localCommentsByPageRef = useRef<Record<string, Record<string, string>>>({});
   const [renderTick, setRenderTick] = useState(0);
 
+  // 删除后的撤销窗口：暂存被删批注，8 秒内可按原位置重新落标
+  const [undoTarget, setUndoTarget] = useState<ExternalAnnotation | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const commentsScrollRef = useRef<HTMLDivElement>(null);
+
   // Update pageRef and handle pageId changes
   useEffect(() => {
     // If switching to a different page, flush previous page's pending comments first
@@ -66,6 +71,10 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
         onUpdateRef.current({ ...pageRef.current, annotations: merged });
         delete localCommentsByPageRef.current[prevPageId];
       }
+      // 切页后旧的撤销目标已失效，避免在别的页面上弹出无效撤销条
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+      setUndoTarget(null);
       activePageIdRef.current = page.id;
       lastAnnotationHashRef.current = '';
     }
@@ -295,18 +304,85 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
       if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
       if (commentDebounceRef.current) clearTimeout(commentDebounceRef.current);
       if (periodicSyncRef.current) clearInterval(periodicSyncRef.current);
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     };
   }, []);
 
+  // 点击批注列卡片 → 高亮正文对应标记（与序号跳转互为反向）
+  const handleFocusCommentCard = useCallback((id: string) => {
+    const container = commentsScrollRef.current;
+    if (!container) return;
+    const card = container.querySelector<HTMLElement>(
+      `[data-annotation-card="${id.replace(/["\\]/g, '\\$&')}"]`,
+    );
+    if (!card) return;
+    card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    card.classList.remove('annotation-card-flash');
+    void card.offsetWidth;
+    card.classList.add('annotation-card-flash');
+    window.setTimeout(() => card.classList.remove('annotation-card-flash'), 1200);
+  }, []);
+
+  // 正文（只读模式）点击已有标记时，ClickWordSelection 会派发该事件
+  useEffect(() => {
+    const dom = leftEditor?.view?.dom;
+    if (!dom) return;
+    const onFocus = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: string }>).detail?.id;
+      if (id) handleFocusCommentCard(id);
+    };
+    dom.addEventListener('annotation:focus', onFocus);
+    return () => dom.removeEventListener('annotation:focus', onFocus);
+  }, [leftEditor, handleFocusCommentCard]);
+
   const handleRemoveAnnotation = useCallback((id: string) => {
     if (!leftEditor) return;
-    leftEditor.chain().unsetAnnotation(id).run();
     const currentPageId = activePageIdRef.current;
+    // 先留存被删批注（含尚未落盘的评论），供 8 秒内撤销
+    const removed = (pageRef.current.annotations || []).find(a => a.id === id);
+    const pendingComment = localCommentsByPageRef.current[currentPageId]?.[id];
+
+    leftEditor.chain().unsetAnnotation(id).run();
     if (localCommentsByPageRef.current[currentPageId]) {
       delete localCommentsByPageRef.current[currentPageId][id];
     }
     flushAll(leftEditor);
+
+    if (!removed) return;
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoTarget(pendingComment === undefined ? removed : { ...removed, comment: pendingComment });
+    undoTimerRef.current = setTimeout(() => setUndoTarget(null), 8000);
   }, [leftEditor, flushAll]);
+
+  const handleUndoRemove = useCallback(() => {
+    const target = undoTarget;
+    if (!leftEditor || !target) return;
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+    setUndoTarget(null);
+
+    const { doc } = leftEditor.state;
+    const from = Math.min(target.from, doc.content.size);
+    const to = Math.min(target.to, doc.content.size);
+    // 期间正文可能已改动：文本对不上就放弃，避免把标记落到错误位置
+    if (from >= to || doc.textBetween(from, to, ' ', ' ') !== target.text) return;
+
+    leftEditor.chain()
+      .setTextSelection({ from, to })
+      .setAnnotation(target.id, target.seq)
+      .run();
+
+    // 先把批注元信息（评论 / 展示文本 / 字号）放回快照，flushAll 重新提取时会沿用
+    const base = pageRef.current;
+    const existing = base.annotations || [];
+    if (!existing.some(a => a.id === target.id)) {
+      const annotations = [...existing, target].sort((a, b) => a.from - b.from);
+      pageRef.current = { ...base, annotations };
+    }
+    flushAll(leftEditor);
+  }, [leftEditor, undoTarget, flushAll]);
 
   const handleChange = <K extends keyof PageData>(field: K, value: PageData[K]) => {
     onUpdateRef.current({ ...pageRef.current, [field]: value });
@@ -355,8 +431,8 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
               <span className="shrink-0">Main Article</span>
               <span className="normal-case font-medium text-slate-400 truncate">
                 {isAnnotateMode
-                  ? 'Read-only · click a word or drag to select'
-                  : 'Editing · marks stay on the original text'}
+                  ? 'Read-only · marks in original text · click a word to select'
+                  : 'Editing · marks in original text'}
               </span>
             </div>
 
@@ -395,10 +471,41 @@ export const IntensiveContentSection: React.FC<SectionProps> = ({ page, onUpdate
             onToggleStyle={handleToggleStyle}
           />
           <div className={`border border-slate-200 rounded-xl overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:ring-[#264376] flex flex-col min-h-[300px] ${page.annotationStyle === 'single' ? 'annotation-style-single' : ''}`}>
-            <div className="bg-white text-[10px] uppercase font-bold text-slate-500 p-2 border-b flex justify-between items-center shadow-sm z-10">
-              <span>Comments</span>
+            <div className="bg-white text-[10px] uppercase font-bold text-slate-500 p-2 border-b flex justify-between items-center gap-2 shadow-sm z-10">
+              <span className="shrink-0">Comments</span>
+              <span className="normal-case font-medium text-slate-400 truncate">
+                One card per mark · click [n] or a mark to jump
+              </span>
             </div>
-            <div className="p-4 flex-1 overflow-y-auto">
+
+            {undoTarget && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex items-center gap-2 px-3 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800"
+              >
+                <span className="flex-1 truncate">
+                  Removed “{undoTarget.displayText || undoTarget.text}”
+                </span>
+                <button
+                  type="button"
+                  onClick={handleUndoRemove}
+                  className="px-2 py-1 rounded font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUndoTarget(null)}
+                  aria-label="Dismiss undo"
+                  className="p-1 rounded hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                >
+                  <X size={12} aria-hidden="true" />
+                </button>
+              </div>
+            )}
+
+            <div ref={commentsScrollRef} className="p-4 flex-1 overflow-y-auto">
               {activeAnnotations.length === 0 ? (
                 <div className="text-sm text-slate-500 italic text-center mt-10 px-4">
                   {isAnnotateMode

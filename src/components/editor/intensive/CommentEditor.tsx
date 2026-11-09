@@ -79,16 +79,10 @@ export const CommentEditor = memo(({
     onSetAnnotationDisplayText(annotation.id, '');
   }, [annotation.id, annotation.text, onSetAnnotationDisplayText]);
 
-  // 删除会同时丢掉批注正文，有内容时先确认，避免误点即丢
+  // 删除后编辑器会给出 8 秒撤销条，因此不再弹确认框打断操作（撤销优于确认）
   const handleRemoveClick = useCallback(() => {
-    const liveText = editorRef.current
-      ? sanitizeComment(editorRef.current.innerHTML).replace(/<[^>]*>/g, '').trim()
-      : '';
-    if (liveText && !window.confirm(`Delete the note for "${annotation.displayText || annotation.text}"? Its note text will be lost.`)) {
-      return;
-    }
     onRemove(annotation.id);
-  }, [annotation.displayText, annotation.id, annotation.text, onRemove]);
+  }, [annotation.id, onRemove]);
 
   // Initialize content on mount only.
   useEffect(() => {
@@ -189,7 +183,10 @@ export const CommentEditor = memo(({
   }, [handleInput]);
 
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden bg-white mb-3 shadow-sm">
+    <div
+      data-annotation-card={annotation.id}
+      className="border border-slate-200 rounded-lg overflow-hidden bg-white mb-3 shadow-sm"
+    >
       <div className="bg-slate-50 border-b">
         {/* 词条行独占一行：长词组（如 scratched that itch）不会把“恢复原文”按钮挤掉 */}
         <div className="flex items-center gap-1 px-2 pt-2">
