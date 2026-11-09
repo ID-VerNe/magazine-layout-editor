@@ -1,5 +1,6 @@
 import { Mark, mergeAttributes } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
+import type { Mark as PMMark } from '@tiptap/pm/model';
 import { BOUNDARY_CHARS } from '../intensive/annotationHelpers';
 
 export interface AnnotationMarkOptions {
@@ -89,22 +90,18 @@ export const AnnotationMark = Mark.create<AnnotationMarkOptions>({
         return commands.setMark(this.name, { id, seq });
       },
       unsetAnnotation: (id: string) => ({ tr, state, dispatch }) => {
-        let startPos = -1;
-        let endPos = -1;
+        // 只移除目标 id 的 mark。此前按范围整体 removeMark，相邻/重叠的另一条批注会被一起删掉。
+        const markType = state.schema.marks[this.name];
+        const targets: Array<{ from: number; to: number; mark: PMMark }> = [];
         state.doc.descendants((node, pos) => {
-          const mark = node.marks.find(m => m.type.name === this.name && m.attrs.id === id);
-          if (mark) {
-            if (startPos === -1) startPos = pos;
-            endPos = pos + node.nodeSize;
-          }
+          const mark = node.marks.find(m => m.type === markType && m.attrs.id === id);
+          if (mark) targets.push({ from: pos, to: pos + node.nodeSize, mark });
         });
 
-        if (startPos !== -1 && endPos !== -1 && dispatch) {
-          tr.removeMark(startPos, endPos, state.schema.marks[this.name]);
-          dispatch(tr);
-          return true;
-        }
-        return false;
+        if (targets.length === 0 || !dispatch) return false;
+        targets.forEach(({ from, to, mark }) => tr.removeMark(from, to, mark));
+        dispatch(tr);
+        return true;
       },
     };
   },

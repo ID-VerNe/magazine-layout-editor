@@ -13,6 +13,17 @@ export const ClickWordSelection = Extension.create({
             const { state } = view;
             if (view.editable) return false;
 
+            // 点击已有批注的标记时，滚动定位到批注列对应卡片（与序号跳转互为反向）
+            const annMark = state.doc.resolve(pos).marks()
+              .find(m => m.type.name === 'annotationMark');
+            if (annMark) {
+              view.dom.dispatchEvent(new CustomEvent('annotation:focus', {
+                bubbles: true,
+                detail: { id: annMark.attrs.id },
+              }));
+              return true;
+            }
+
             const $pos = state.doc.resolve(pos);
             if (!$pos.parent.isTextblock) return false;
 
